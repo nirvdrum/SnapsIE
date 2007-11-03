@@ -1,0 +1,22 @@
+HKCR
+{
+	NoRemove AppID
+	{
+		'%APPID%' = s 'Snapsie'
+		'Snapsie.DLL'
+		{
+			val AppID = s '%APPID%'
+		}
+	}
+	NoRemove CLSID
+	{
+		ForceRemove {68EFB69B-B8B2-486D-97C0-B00BA2F231E0} = s 'CompReg Class'
+		{
+			InprocServer32 = s '%MODULE%'
+			{
+				val ThreadingModel = s 'Apartment'
+			}
+			'TypeLib' = s '{E2A04E04-DCA7-48CF-A9B0-643CB8152E59}'
+		}
+	}
+}

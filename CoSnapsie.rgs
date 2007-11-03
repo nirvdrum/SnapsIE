@@ -1,0 +1,27 @@
+HKCR
+{
+	Snapsie.CoSnapsie.1 = s 'CoSnapsie Class'
+	{
+		CLSID = s '{83D4FFBF-83C7-48FF-8342-123CC6BDC851}'
+	}
+	Snapsie.CoSnapsie = s 'CoSnapsie Class'
+	{
+		CLSID = s '{83D4FFBF-83C7-48FF-8342-123CC6BDC851}'
+		CurVer = s 'Snapsie.CoSnapsie.1'
+	}
+	NoRemove CLSID
+	{
+		ForceRemove {83D4FFBF-83C7-48FF-8342-123CC6BDC851} = s 'CoSnapsie Class'
+		{
+			ProgID = s 'Snapsie.CoSnapsie.1'
+			VersionIndependentProgID = s 'Snapsie.CoSnapsie'
+			ForceRemove 'Programmable'
+			InprocServer32 = s '%MODULE%'
+			{
+				val ThreadingModel = s 'Apartment'
+			}
+			val AppID = s '%APPID%'
+			'TypeLib' = s '{E2A04E04-DCA7-48CF-A9B0-643CB8152E59}'
+		}
+	}
+}

@@ -1,0 +1,65 @@
+// Snapsie.idl : IDL source for Snapsie
+//
+
+// This file will be processed by the MIDL tool to
+// produce the type library (Snapsie.tlb) and marshalling code.
+
+import "oaidl.idl";
+import "ocidl.idl";
+
+[
+	object,
+	uuid(a817e7a2-43fa-11d0-9e44-00aa00b6770a),
+	dual,
+	helpstring("IComponentRegistrar Interface"),
+	pointer_default(unique)
+]
+interface IComponentRegistrar : IDispatch
+{
+	[id(1)]	HRESULT Attach([in] BSTR bstrPath);
+	[id(2)]	HRESULT RegisterAll();
+	[id(3)]	HRESULT UnregisterAll();
+	[id(4)]	HRESULT GetComponents([out] SAFEARRAY(BSTR)* pbstrCLSIDs, [out] SAFEARRAY(BSTR)* pbstrDescriptions);
+	[id(5)]	HRESULT RegisterComponent([in] BSTR bstrCLSID);
+	[id(6)] HRESULT UnregisterComponent([in] BSTR bstrCLSID);
+};
+
+[
+	object,
+	uuid(62338A0D-92DD-473D-818E-36118EF78E9D),
+	dual,
+	nonextensible,
+	helpstring("ISnapsie Interface"),
+	pointer_default(unique)
+]
+interface ISnapsie : IDispatch
+{
+    HRESULT saveSnapshot([in] BSTR outputPath);
+};
+[
+	uuid(E2A04E04-DCA7-48CF-A9B0-643CB8152E59),
+	version(1.0),
+	helpstring("Snapsie 1.0 Type Library"),
+	custom(a817e7a1-43fa-11d0-9e44-00aa00b6770a,"{68EFB69B-B8B2-486D-97C0-B00BA2F231E0}")
+]
+library SnapsieLib
+{
+	importlib("stdole2.tlb");
+
+	[
+		uuid(68EFB69B-B8B2-486D-97C0-B00BA2F231E0),
+		helpstring("ComponentRegistrar Class")
+	]
+	coclass CompReg
+	{
+		[default] interface IComponentRegistrar;
+	};
+	[
+		uuid(83D4FFBF-83C7-48FF-8342-123CC6BDC851),
+		helpstring("CoSnapsie Class")
+	]
+	coclass CoSnapsie
+	{
+		[default] interface ISnapsie;
+	};
+};
