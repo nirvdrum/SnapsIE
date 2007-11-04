@@ -79,22 +79,26 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(BSTR outputPath)
     if (FAILED(hr))
         return E_FAIL;
 
+    CComBSTR borderStyle;
+    spStyle->get_borderStyle(&borderStyle);
     spStyle->put_borderStyle(CComBSTR("none"));    // hide 3D border
 
     spBodyElement = spBody;
     if (spBodyElement == NULL)
         return E_FAIL;
 
+    CComBSTR scroll;
+    spBodyElement->get_scroll(&scroll);
     spBodyElement->put_scroll(CComBSTR("no"));     // hide scrollbars
 
     spBody2 = spBody;
     if (spBody2 == NULL)
         return E_FAIL;
 
-    long bodyWidth;
-    long bodyHeight;
-    spBody2->get_scrollWidth(&bodyWidth);
-    spBody2->get_scrollHeight(&bodyHeight);
+    long scrollWidth;
+    long scrollHeight;
+    spBody2->get_scrollWidth(&scrollWidth);
+    spBody2->get_scrollHeight(&scrollHeight);
 
     spDocument3 = spDispatch;
     if (spDocument3 == NULL)
@@ -108,15 +112,13 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(BSTR outputPath)
     if (spElement2 == NULL)
         return E_FAIL;
 
-    long scrollWidth  = bodyWidth;
-    long scrollHeight = bodyHeight;
-
     long clientWidth;
     long clientHeight;
     spBody2->get_clientWidth(&clientWidth);
     spBody2->get_clientHeight(&clientHeight);
     
-    // record the current scroll position, and restore it afterwards
+    // record the current scroll position, and restore it afterwards. Also
+    // restore the border style and scrollbars, if necessary.
 
     long scrollLeft = 0;
     long scrollTop = 0;
@@ -129,6 +131,9 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(BSTR outputPath)
 
     spBody2->put_scrollLeft(scrollLeft);
     spBody2->put_scrollTop(scrollTop);
+
+    spStyle->put_borderStyle(borderStyle);
+    spBodyElement->put_scroll(scroll);
 
     return hr;
 }
@@ -157,11 +162,11 @@ STDMETHODIMP CCoSnapsie::panAndScan(void* pBrowser, BSTR outputPath,
 
     HRESULT hr;
     HWND hwndBrowser;
-    CComQIPtr<IWebBrowser2> spBrowser;
-    CComPtr<IDispatch> spDispatch;
+    CComQIPtr<IWebBrowser2>   spBrowser;
+    CComPtr<IDispatch>        spDispatch;
     CComQIPtr<IHTMLDocument2> spDocument;
-    CComPtr<IHTMLWindow2> spWindow;
-    CComQIPtr<IViewObject2> spViewObject;
+    CComPtr<IHTMLWindow2>     spWindow;
+    CComQIPtr<IViewObject2>   spViewObject;
 
     spBrowser = (IWebBrowser2*)pBrowser;
     if (spBrowser == NULL)
