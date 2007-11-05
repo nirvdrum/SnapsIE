@@ -16,6 +16,11 @@ HKCR
 			ProgID = s 'Snapsie.CoSnapsie.1'
 			VersionIndependentProgID = s 'Snapsie.CoSnapsie'
 			ForceRemove 'Programmable'
+			'Implemented Categories'
+			{
+				{7DD95801-9882-11CF-9FA9-00AA006C42C4}
+				{7DD95802-9882-11CF-9FA9-00AA006C42C4}
+			}
 			InprocServer32 = s '%MODULE%'
 			{
 				val ThreadingModel = s 'Apartment'

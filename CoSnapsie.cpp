@@ -4,7 +4,7 @@
 #include "CoSnapsie.h"
 #include <mshtml.h>
 #include <exdisp.h>
-#include <stdio.h>      // debugging
+//#include <stdio.h>      // debugging
 
 
 // CCoSnapsie

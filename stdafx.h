@@ -38,6 +38,5 @@
 #include <atlbase.h>
 #include <atlcom.h>
 #include <atlimage.h>
-#include <Urlmon.h>
 
 using namespace ATL;
