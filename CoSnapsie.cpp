@@ -4,6 +4,7 @@
 #include "CoSnapsie.h"
 #include <mshtml.h>
 #include <exdisp.h>
+#include <stdio.h>      // debugging
 
 
 // CCoSnapsie
@@ -39,12 +40,12 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(BSTR outputPath)
     CComPtr<IDispatch>          spDispatch; 
     CComQIPtr<IHTMLDocument2>   spDocument;
     CComPtr<IHTMLElement>       spBody;
-    CComQIPtr<IHTMLElement2>    spBody2;
     CComQIPtr<IHTMLBodyElement> spBodyElement;
-    CComPtr<IHTMLStyle>         spStyle;
     CComQIPtr<IHTMLDocument3>   spDocument3;
     CComPtr<IHTMLElement>       spElement;
-    CComQIPtr<IHTMLElement2>    spElement2;
+    CComQIPtr<IHTMLDocument5>   spDocument5;
+    CComQIPtr<IHTMLElement2>    spDimensionElement;
+    CComPtr<IHTMLStyle>         spStyle;
 
     GetSite(IID_IUnknown, (void**)&spClientSite);
 
@@ -75,30 +76,9 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(BSTR outputPath)
     if (spBody == NULL)
         return E_FAIL;
 
-    hr = spBody->get_style(&spStyle);
-    if (FAILED(hr))
-        return E_FAIL;
-
-    CComBSTR borderStyle;
-    spStyle->get_borderStyle(&borderStyle);
-    spStyle->put_borderStyle(CComBSTR("none"));    // hide 3D border
-
     spBodyElement = spBody;
     if (spBodyElement == NULL)
         return E_FAIL;
-
-    CComBSTR scroll;
-    spBodyElement->get_scroll(&scroll);
-    spBodyElement->put_scroll(CComBSTR("no"));     // hide scrollbars
-
-    spBody2 = spBody;
-    if (spBody2 == NULL)
-        return E_FAIL;
-
-    long scrollWidth;
-    long scrollHeight;
-    spBody2->get_scrollWidth(&scrollWidth);
-    spBody2->get_scrollHeight(&scrollHeight);
 
     spDocument3 = spDispatch;
     if (spDocument3 == NULL)
@@ -108,32 +88,66 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(BSTR outputPath)
     if (FAILED(hr))
         return E_FAIL;
 
-    spElement2 = spElement;
-    if (spElement2 == NULL)
+    spDocument5 = spDocument3;
+    if (spDocument == NULL)
         return E_FAIL;
 
+    // try to deal with the different interpretations of the scroll and client
+    // dimensions, depending on the IE rendering mode.
+    // http://lists.w3.org/Archives/Public/www-archive/2007Aug/att-0003/offset-mess.htm
+    // http://msdn2.microsoft.com/en-us/library/bb250395.aspx
+    CComBSTR compatMode;
+    spDocument5->get_compatMode(&compatMode);
+    if (compatMode == L"BackCompat") {
+        // quirks mode
+        spDimensionElement = spBody;
+    }
+    else {
+        // standards mode
+        spDimensionElement = spElement;
+    }
+
+    hr = spDimensionElement->get_runtimeStyle(&spStyle);
+    if (FAILED(hr))
+        return E_FAIL;
+
+    // be sure to hide the 3D border and scrollbars *before* calculating the
+    // scroll and client dimensions. We need to restore these after the fact.
+
+    CComBSTR borderStyle;
+    CComBSTR overflow;
+
+    spStyle->get_borderStyle(&borderStyle);
+    spStyle->put_borderStyle(CComBSTR("none"));
+    spStyle->get_overflow(&overflow);
+    spStyle->put_overflow(CComBSTR("hidden"));
+
+    long scrollWidth;
+    long scrollHeight;
     long clientWidth;
     long clientHeight;
-    spBody2->get_clientWidth(&clientWidth);
-    spBody2->get_clientHeight(&clientHeight);
+    long scrollLeft;
+    long scrollTop;
+
+    spDimensionElement->get_scrollWidth(&scrollWidth);
+    spDimensionElement->get_scrollHeight(&scrollHeight);
+    spDimensionElement->get_clientWidth(&clientWidth);
+    spDimensionElement->get_clientHeight(&clientHeight);
+    spDimensionElement->get_scrollLeft(&scrollLeft);
+    spDimensionElement->get_scrollTop(&scrollTop);
     
     // record the current scroll position, and restore it afterwards. Also
     // restore the border style and scrollbars, if necessary.
-
-    long scrollLeft = 0;
-    long scrollTop = 0;
-    spBody2->get_scrollLeft(&scrollLeft);
-    spBody2->get_scrollTop(&scrollTop);
 
     hr = panAndScan(spBrowser, outputPath,
                     scrollWidth, scrollHeight,
                     clientWidth, clientHeight);
 
-    spBody2->put_scrollLeft(scrollLeft);
-    spBody2->put_scrollTop(scrollTop);
+    spDimensionElement->put_scrollLeft(scrollLeft);
+    spDimensionElement->put_scrollTop(scrollTop);
 
     spStyle->put_borderStyle(borderStyle);
-    spBodyElement->put_scroll(scroll);
+    spStyle->put_overflow(overflow);
 
     return hr;
 }
@@ -264,6 +278,11 @@ STDMETHODIMP CCoSnapsie::panAndScan(void* pBrowser, BSTR outputPath,
                 xStart -= xEnd - scrollWidth;
                 xEnd = scrollWidth;
             }
+
+            //char message[1024];
+            //sprintf_s(message, "Capturing region: (%d,%d)->(%d,%d)\n", xStart, yStart, xEnd, yEnd);
+            //CComBSTR b = message;
+            //MessageBox(NULL, b, L"Debug Info", MB_OK | MB_SETFOREGROUND);
 
             // scroll the window, and draw the results
 

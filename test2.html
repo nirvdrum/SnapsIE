@@ -1,0 +1,49 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0//EN">
+<html>
+<head>
+<style type="text/css">
+body {
+    margin: 0;
+    border: solid 15px #ddd;
+
+}
+.bigtext {
+    font-size: 500pt;
+}
+</style>
+</head>
+<body>
+<div style="background: #ffe;">
+<table>
+<tr><td><input type="text" value="C:\snapsie_test.png" size="40" id="outputPath" /></td>
+    <td><input type="button" value="Save" onclick="save()" /></td>
+</tr>
+</table>
+<div class="bigtext">
+<span style="color:orange">snapsIE</span><br />
+<span style="color:blue">h</span><br />
+<span style="color:green">o</span><br />
+<span style="color:red">u</span><br />
+<span style="color:purple">t</span><br />
+! ! ! ! !
+</div>
+</div>
+<script type="text/javascript">
+function save()
+{
+    /*
+    alert(document.body.scrollWidth + ', ' + document.body.scrollHeight + ', '
+        + document.body.clientWidth + ', ' + document.body.clientHeight + ', '
+        + document.body.offsetWidth + ', ' + document.body.offsetHeight);
+    */
+    try {
+        var obj = new ActiveXObject('Snapsie.CoSnapsie');
+        obj.saveSnapshot(document.getElementById('outputPath').value);
+    }
+    catch (e) {
+        alert(e + ', ' + (e.message ? e.message : ""));
+    }
+}
+</script>
+</body>
+</html>
