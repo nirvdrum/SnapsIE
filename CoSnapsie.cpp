@@ -4,7 +4,6 @@
 #include "CoSnapsie.h"
 #include <mshtml.h>
 #include <exdisp.h>
-//#include <stdio.h>      // debugging
 
 
 // CCoSnapsie
@@ -58,6 +57,7 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(BSTR outputPath)
         return E_FAIL;
 
     // from http://support.microsoft.com/kb/257717
+
     hr = spISP->QueryService(IID_IWebBrowserApp, IID_IWebBrowser2,
          (void **)&spBrowser);
     if (FAILED(hr))
@@ -231,8 +231,8 @@ STDMETHODIMP CCoSnapsie::panAndScan(void* pBrowser, BSTR outputPath,
     ZeroMemory(&rgbquad, sizeof(RGBQUAD));
 
     bih.biSize      = sizeof(BITMAPINFOHEADER);
-    bih.biWidth     = scrollWidth;
-    bih.biHeight    = scrollHeight;
+    bih.biWidth     = scrollWidth  + (2 * clientLeft);
+    bih.biHeight    = scrollHeight + (2 * clientTop);
     bih.biPlanes    = 1;
     bih.biBitCount      = 24;
     bih.biClrUsed       = 0;
@@ -269,14 +269,18 @@ STDMETHODIMP CCoSnapsie::panAndScan(void* pBrowser, BSTR outputPath,
     for (long yStart = 0; yStart < scrollHeight; yStart += clientHeight) {
         yEnd = yStart + clientHeight;
         if (yEnd > scrollHeight) {
-            yStart -= yEnd - scrollHeight;
+            if (yStart != 0) {
+                yStart = scrollHeight - clientHeight;
+            }
             yEnd = scrollHeight;
         }
 
         for (long xStart = 0; xStart < scrollWidth; xStart += clientWidth) {
             xEnd = xStart + clientWidth;
             if (xEnd > scrollWidth) {
-                xStart -= xEnd - scrollWidth;
+                if (xStart != 0) {
+                    xStart = scrollWidth - clientWidth;
+                }
                 xEnd = scrollWidth;
             }
 
@@ -289,13 +293,13 @@ STDMETHODIMP CCoSnapsie::panAndScan(void* pBrowser, BSTR outputPath,
             // device we draw on isn't sized to the client dimensions; it's
             // sized to the client dimensions PLUS the left or top offset.
 
-            RECTL rcBounds = { 0, 0, clientWidth + (2 * clientLeft),
-                clientHeight + (2 * clientTop) };
-
             hr = spWindow->scroll(xStart, yStart);
             if (FAILED(hr)) {
                 break;
             }
+
+            RECTL rcBounds = { 0, 0, clientWidth + (2 * clientLeft),
+                clientHeight + (2 * clientTop) };
 
             hr = spViewObject->Draw(DVASPECT_CONTENT, -1, NULL, NULL, hdcInput,
                 hdcOutput, &rcBounds, NULL, NULL, 0);
@@ -303,7 +307,8 @@ STDMETHODIMP CCoSnapsie::panAndScan(void* pBrowser, BSTR outputPath,
                 break;
 
             // copy to correct region of output device
-            ::BitBlt(imageDC, xStart, yStart, clientWidth, clientHeight,
+
+            ::BitBlt(imageDC, xStart, yStart, xEnd - xStart, yEnd - yStart,
                 hdcOutput, clientLeft, clientTop, SRCCOPY);
         }
         if (FAILED(hr)) {
