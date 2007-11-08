@@ -40,7 +40,6 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(BSTR outputPath)
     CComPtr<IDispatch>          spDispatch; 
     CComQIPtr<IHTMLDocument2>   spDocument;
     CComPtr<IHTMLElement>       spBody;
-    CComQIPtr<IHTMLBodyElement> spBodyElement;
     CComQIPtr<IHTMLDocument3>   spDocument3;
     CComPtr<IHTMLElement>       spElement;
     CComQIPtr<IHTMLDocument5>   spDocument5;
@@ -76,10 +75,6 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(BSTR outputPath)
     if (spBody == NULL)
         return E_FAIL;
 
-    spBodyElement = spBody;
-    if (spBodyElement == NULL)
-        return E_FAIL;
-
     spDocument3 = spDispatch;
     if (spDocument3 == NULL)
         return E_FAIL;
@@ -96,6 +91,7 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(BSTR outputPath)
     // dimensions, depending on the IE rendering mode.
     // http://lists.w3.org/Archives/Public/www-archive/2007Aug/att-0003/offset-mess.htm
     // http://msdn2.microsoft.com/en-us/library/bb250395.aspx
+
     CComBSTR compatMode;
     spDocument5->get_compatMode(&compatMode);
     if (compatMode == L"BackCompat") {
@@ -111,14 +107,11 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(BSTR outputPath)
     if (FAILED(hr))
         return E_FAIL;
 
-    // be sure to hide the 3D border and scrollbars *before* calculating the
-    // scroll and client dimensions. We need to restore these after the fact.
+    // be sure to hide the scrollbars *before* calculating the scroll and
+    // client dimensions. We need to restore them after the fact.
 
-    CComBSTR borderStyle;
     CComBSTR overflow;
 
-    spStyle->get_borderStyle(&borderStyle);
-    spStyle->put_borderStyle(CComBSTR("none"));
     spStyle->get_overflow(&overflow);
     spStyle->put_overflow(CComBSTR("hidden"));
 
@@ -126,27 +119,33 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(BSTR outputPath)
     long scrollHeight;
     long clientWidth;
     long clientHeight;
-    long scrollLeft;
-    long scrollTop;
+    long clientLeft;
+    long clientTop;
 
     spDimensionElement->get_scrollWidth(&scrollWidth);
     spDimensionElement->get_scrollHeight(&scrollHeight);
     spDimensionElement->get_clientWidth(&clientWidth);
     spDimensionElement->get_clientHeight(&clientHeight);
+    spDimensionElement->get_clientLeft(&clientLeft);
+    spDimensionElement->get_clientTop(&clientTop);
+
+    // record the current scroll position, and restore it afterwards. Also
+    // restore scrollbars, if necessary.
+
+    long scrollLeft;
+    long scrollTop;
+
     spDimensionElement->get_scrollLeft(&scrollLeft);
     spDimensionElement->get_scrollTop(&scrollTop);
-    
-    // record the current scroll position, and restore it afterwards. Also
-    // restore the border style and scrollbars, if necessary.
 
     hr = panAndScan(spBrowser, outputPath,
                     scrollWidth, scrollHeight,
-                    clientWidth, clientHeight);
+                    clientWidth, clientHeight,
+                    clientLeft , clientTop);
 
     spDimensionElement->put_scrollLeft(scrollLeft);
     spDimensionElement->put_scrollTop(scrollTop);
 
-    spStyle->put_borderStyle(borderStyle);
     spStyle->put_overflow(overflow);
 
     return hr;
@@ -167,7 +166,9 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(BSTR outputPath)
  * @param clientHeight  current height of viewable content
  */
 STDMETHODIMP CCoSnapsie::panAndScan(void* pBrowser, BSTR outputPath,
-    long scrollWidth, long scrollHeight, long clientWidth, long clientHeight)
+    long scrollWidth, long scrollHeight,
+    long clientWidth, long clientHeight,
+    long clientLeft , long clientTop)
 {
     ATLASSERT(scrollWidth  > 0);
     ATLASSERT(scrollHeight > 0);
@@ -205,6 +206,7 @@ STDMETHODIMP CCoSnapsie::panAndScan(void* pBrowser, BSTR outputPath,
     // THANK YOU Mark Finkle!
     // Nobody else seems to know how to get IViewObject2?!
     // http://starkravingfinkle.org/blog/2004/09/
+
     spViewObject = spDocument;
     if (spViewObject == NULL)
         return E_FAIL;
@@ -264,7 +266,6 @@ STDMETHODIMP CCoSnapsie::panAndScan(void* pBrowser, BSTR outputPath,
     long xEnd;
     long yEnd;
 
-    long count = 0;
     for (long yStart = 0; yStart < scrollHeight; yStart += clientHeight) {
         yEnd = yStart + clientHeight;
         if (yEnd > scrollHeight) {
@@ -284,9 +285,12 @@ STDMETHODIMP CCoSnapsie::panAndScan(void* pBrowser, BSTR outputPath,
             //CComBSTR b = message;
             //MessageBox(NULL, b, L"Debug Info", MB_OK | MB_SETFOREGROUND);
 
-            // scroll the window, and draw the results
+            // scroll the window, and draw the results. Here's the key: the
+            // device we draw on isn't sized to the client dimensions; it's
+            // sized to the client dimensions PLUS the left or top offset.
 
-            RECTL rcBounds = { 0, 0, clientWidth, clientHeight };
+            RECTL rcBounds = { 0, 0, clientWidth + (2 * clientLeft),
+                clientHeight + (2 * clientTop) };
 
             hr = spWindow->scroll(xStart, yStart);
             if (FAILED(hr)) {
@@ -299,7 +303,8 @@ STDMETHODIMP CCoSnapsie::panAndScan(void* pBrowser, BSTR outputPath,
                 break;
 
             // copy to correct region of output device
-            ::BitBlt(imageDC, xStart, yStart, xEnd - xStart, yEnd - yStart, hdcOutput, 0, 0, SRCCOPY);
+            ::BitBlt(imageDC, xStart, yStart, clientWidth, clientHeight,
+                hdcOutput, clientLeft, clientTop, SRCCOPY);
         }
         if (FAILED(hr)) {
             Error("Failed during pan and scan");

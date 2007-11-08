@@ -57,7 +57,7 @@ STDAPI DllGetClassObject(REFCLSID rclsid, REFIID riid, LPVOID* ppv)
 STDAPI DllRegisterServer(void)
 {
     // registers object, typelib and all interfaces in typelib
-    HRESULT hr = _AtlModule.DllRegisterServer();
+    HRESULT hr = _AtlModule.DllRegisterServer(FALSE);
 	return hr;
 }
 
@@ -65,7 +65,7 @@ STDAPI DllRegisterServer(void)
 // DllUnregisterServer - Removes entries from the system registry
 STDAPI DllUnregisterServer(void)
 {
-	HRESULT hr = _AtlModule.DllUnregisterServer();
+	HRESULT hr = _AtlModule.DllUnregisterServer(FALSE);
 	return hr;
 }
 

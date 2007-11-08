@@ -59,7 +59,9 @@ public:
 private:
 
     STDMETHODIMP panAndScan(void* pBrowser, BSTR outputPath,
-        long scrollWidth, long scrollHeight, long clientWidth, long clientHeight);
+        long scrollWidth, long scrollHeight,
+        long clientWidth, long clientHeight,
+        long clientLeft , long clientTop);
 };
 
 OBJECT_ENTRY_AUTO(__uuidof(CoSnapsie), CCoSnapsie)

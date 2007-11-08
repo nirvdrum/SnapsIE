@@ -331,6 +331,10 @@
 			RelativePath=".\test.html"
 			>
 		</File>
+		<File
+			RelativePath=".\test2.html"
+			>
+		</File>
 	</Files>
 	<Globals>
 	</Globals>
