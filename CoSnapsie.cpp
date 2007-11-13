@@ -6,6 +6,7 @@
 #include <exdisp.h>
 
 
+
 // CCoSnapsie
 
 STDMETHODIMP CCoSnapsie::InterfaceSupportsErrorInfo(REFIID riid)
@@ -30,9 +31,10 @@ STDMETHODIMP CCoSnapsie::InterfaceSupportsErrorInfo(REFIID riid)
  * @param outputPath  the path to the file to save the PNG output as
  * @link http://iecapt.sourceforge.net/
  */
-STDMETHODIMP CCoSnapsie::saveSnapshot(BSTR outputPath)
+STDMETHODIMP CCoSnapsie::saveSnapshot(BSTR outputPath, BSTR frameId)
 {
     HRESULT hr;
+    HWND hwndBrowser;
     CComPtr<IOleClientSite>     spClientSite;
     CComQIPtr<IServiceProvider> spISP;
     CComPtr<IWebBrowser2>       spBrowser;
@@ -63,6 +65,12 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(BSTR outputPath)
     if (FAILED(hr))
         return E_FAIL;
 
+    hr = spBrowser->get_HWND((long*)&hwndBrowser);
+    if (FAILED(hr)) {
+        Error("Could not get HWND for browser (is this a frame?)");
+        return E_FAIL;
+    }
+
     hr = spBrowser->get_Document(&spDispatch);
     if (FAILED(hr))
         return E_FAIL;
@@ -71,12 +79,43 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(BSTR outputPath)
     if (spDocument == NULL)
         return E_FAIL;
 
-    hr = spDocument->get_body(&spBody);
-    if (spBody == NULL)
-        return E_FAIL;
-
     spDocument3 = spDispatch;
     if (spDocument3 == NULL)
+        return E_FAIL;
+
+    // we could be rendering the base document, or a frame. The view object
+    // is retrieved from the document, so get the right document here.
+
+    if (SysStringLen(frameId) > 0) {
+        CComPtr<IHTMLElement>   spFramedElement;
+        CComQIPtr<IWebBrowser2> spFramedBrowser;
+        CComPtr<IDispatch>      spFramedDispatch;
+
+        hr = spDocument3->getElementById(frameId, &spFramedElement);
+        if (FAILED(hr))
+            return E_FAIL;
+
+        spFramedBrowser = spFramedElement;
+        if (spFramedBrowser == NULL) {
+            Error("Supposed frame element is not a browser");
+            return E_FAIL;
+        }
+
+        hr = spFramedBrowser->get_Document(&spFramedDispatch);
+        if (FAILED(hr))
+            return E_FAIL;
+
+        spDocument = spFramedDispatch;
+        if (spDocument == NULL)
+            return E_FAIL;
+
+        spDocument3 = spFramedDispatch;
+        if (spDocument3 == NULL)
+            return E_FAIL;
+    }
+
+    hr = spDocument->get_body(&spBody);
+    if (spBody == NULL)
         return E_FAIL;
 
     hr = spDocument3->get_documentElement(&spElement);
@@ -84,8 +123,10 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(BSTR outputPath)
         return E_FAIL;
 
     spDocument5 = spDocument3;
-    if (spDocument == NULL)
+    if (spDocument5 == NULL) {
+        Error("Could not get IHTMLDocument5");
         return E_FAIL;
+    }
 
     // try to deal with the different interpretations of the scroll and client
     // dimensions, depending on the IE rendering mode.
@@ -138,7 +179,7 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(BSTR outputPath)
     spDimensionElement->get_scrollLeft(&scrollLeft);
     spDimensionElement->get_scrollTop(&scrollTop);
 
-    hr = panAndScan(spBrowser, outputPath,
+    hr = panAndScan(hwndBrowser, spDocument, outputPath,
                     scrollWidth, scrollHeight,
                     clientWidth, clientHeight,
                     clientLeft , clientTop);
@@ -158,14 +199,17 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(BSTR outputPath)
  * visible in the client window), this method "pans" around the page to capture
  * all of the information.
  *
- * @param pBrowser      the browser containing the HTML content to copy
+ * @param hwndBrowser   the HWND of the browser containing the document
+ * @param pDocument     the document being rendered
  * @param outputPath    the path to save the file as
  * @param scrollWidth   total width of content
  * @param scrollHeight  total height of content
- * @param clientWidth   current width of viewable content
- * @param clientHeight  current height of viewable content
+ * @param clientWidth   the client width of the canvas element
+ * @param clientHeight  the client height of the canvas element
+ * @param clientLeft    the width of the canvas element's border
+ * @param clientTop     the height of the canvas element's border
  */
-STDMETHODIMP CCoSnapsie::panAndScan(void* pBrowser, BSTR outputPath,
+STDMETHODIMP CCoSnapsie::panAndScan(HWND hwndBrowser, IUnknown* pDocument, BSTR outputPath,
     long scrollWidth, long scrollHeight,
     long clientWidth, long clientHeight,
     long clientLeft , long clientTop)
@@ -176,26 +220,11 @@ STDMETHODIMP CCoSnapsie::panAndScan(void* pBrowser, BSTR outputPath,
     ATLASSERT(clientHeight > 0);
 
     HRESULT hr;
-    HWND hwndBrowser;
-    CComQIPtr<IWebBrowser2>   spBrowser;
-    CComPtr<IDispatch>        spDispatch;
     CComQIPtr<IHTMLDocument2> spDocument;
     CComPtr<IHTMLWindow2>     spWindow;
     CComQIPtr<IViewObject2>   spViewObject;
 
-    spBrowser = (IWebBrowser2*)pBrowser;
-    if (spBrowser == NULL)
-        return E_FAIL;
-
-    hr = spBrowser->get_HWND((long*)&hwndBrowser);
-    if (FAILED(hr))
-        return E_FAIL;
-
-    hr = spBrowser->get_Document(&spDispatch);
-    if (FAILED(hr))
-        return E_FAIL;
-
-    spDocument = spDispatch;
+    spDocument = pDocument;
     if (spDocument == NULL)
         return E_FAIL;
 
@@ -294,29 +323,27 @@ STDMETHODIMP CCoSnapsie::panAndScan(void* pBrowser, BSTR outputPath,
             // sized to the client dimensions PLUS the left or top offset.
 
             hr = spWindow->scroll(xStart, yStart);
-            if (FAILED(hr)) {
-                break;
-            }
+            if (FAILED(hr))
+                goto loop_exit;
 
             RECTL rcBounds = { 0, 0, clientWidth + (2 * clientLeft),
                 clientHeight + (2 * clientTop) };
 
             hr = spViewObject->Draw(DVASPECT_CONTENT, -1, NULL, NULL, hdcInput,
                 hdcOutput, &rcBounds, NULL, NULL, 0);
-            if (FAILED(hr))
-                break;
+            if (FAILED(hr)) {
+                Error("Draw() failed during pan and scan");
+                goto loop_exit;
+            }
 
             // copy to correct region of output device
 
             ::BitBlt(imageDC, xStart, yStart, xEnd - xStart, yEnd - yStart,
                 hdcOutput, clientLeft, clientTop, SRCCOPY);
         }
-        if (FAILED(hr)) {
-            Error("Failed during pan and scan");
-            break;
-        }
     }
-    
+    loop_exit:
+
     // save the image
 
     if (SUCCEEDED(hr)) {
@@ -325,7 +352,7 @@ STDMETHODIMP CCoSnapsie::panAndScan(void* pBrowser, BSTR outputPath,
 
     // clean up
 
-    ReleaseDC(hwndBrowser, hdcInput);
+    ::ReleaseDC(hwndBrowser, hdcInput);
     DeleteDC(hdcOutput);
     DeleteObject(hBitmap);
 

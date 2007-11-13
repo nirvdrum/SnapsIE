@@ -1,0 +1,80 @@
+<html>
+
+<head>
+<title>Selenium Remote Control</title>
+<script type="text/javascript">
+function save2()
+{
+    /*
+    alert(document.body.scrollWidth + ', ' + document.body.scrollHeight + ', '
+        + document.body.clientWidth + ', ' + document.body.clientHeight + ', '
+        + document.body.offsetWidth + ', ' + document.body.offsetHeight);
+    */
+    try {
+        var obj = new ActiveXObject('Snapsie.CoSnapsie');
+        obj.saveSnapshot(document.getElementById('outputPath').value, 'selenium_myiframe');
+    }
+    catch (e) {
+        alert(e + ', ' + (e.message ? e.message : ""));
+    }
+}
+</script>
+</head>
+
+<body>
+<table>
+<tr><td><input type="text" value="C:\snapsie_test.png" size="40" id="outputPath" /></td>
+    <td><input type="button" value="Save" onclick="save2()" /></td>
+</tr>
+</table>
+
+<table border="1" style="height: 100%;">
+  <tr>
+    <td width="50%" height="30%">
+      <table>
+      <tr>
+        <td>
+          <span style="color:#b55; font-size: 50pt;">SE</span>
+        </td>
+        <td>
+          <h1><a href="http://openqa.org/selenium/" >Selenium</a> Functional Testing for Web Apps</h1>
+          Open Source From <a href="http://www.thoughtworks.com">ThoughtWorks, Inc</a> and Friends
+          <form action="">
+          <br/>Slow Mode:<INPUT TYPE="CHECKBOX" NAME="FASTMODE" VALUE="YES">
+
+          <iframe id="seleniumLoggingFrame" name="seleniumLoggingFrame" src="test4.html" style="border: 0; height: 0; width: 0; "></iframe>
+          <fieldset>
+            <legend>Tools</legend>
+
+            <button type="button" id="domViewer1">
+              View DOM
+            </button>
+            <button type="button">
+              Show Log
+            </button>
+          </fieldset>
+
+          </form>
+
+        </td>
+      </tr>
+      </table>
+      <form action="">
+        <label id="context" name="context"></label>
+      </form>
+    </td>
+    <td width="50%" height="30%">
+      <b>Last Four Test Commands:</b><br/>
+      <div id="commandList"></div>
+    </td>
+  </tr>
+    <tr>
+    <td colspan="2" height="70%">
+      <iframe name="selenium_myiframe" id="selenium_myiframe" src="test2.html" height="100%" width="100%"></iframe>
+    </td>
+  </tr>
+</table>
+
+</body>
+</html>
+

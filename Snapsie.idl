@@ -34,7 +34,7 @@ interface IComponentRegistrar : IDispatch
 ]
 interface ISnapsie : IDispatch
 {
-    HRESULT saveSnapshot([in] BSTR outputPath);
+    HRESULT saveSnapshot([in] BSTR outputPath, [in] BSTR frameId);
 };
 [
 	uuid(E2A04E04-DCA7-48CF-A9B0-643CB8152E59),

@@ -36,7 +36,7 @@ function save()
     */
     try {
         var obj = new ActiveXObject('Snapsie.CoSnapsie');
-        obj.saveSnapshot(document.getElementById('outputPath').value);
+        obj.saveSnapshot(document.getElementById('outputPath').value, "");
     }
     catch (e) {
         alert(e + ', ' + (e.message ? e.message : ""));

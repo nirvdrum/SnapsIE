@@ -54,11 +54,11 @@ END_COM_MAP()
 
 public:
 
-    STDMETHODIMP saveSnapshot(BSTR outputPath);
+    STDMETHODIMP saveSnapshot(BSTR outputPath, BSTR frameId);
 
 private:
 
-    STDMETHODIMP panAndScan(void* pBrowser, BSTR outputPath,
+    STDMETHODIMP panAndScan(HWND hwndBrowser, IUnknown* pDocument, BSTR outputPath,
         long scrollWidth, long scrollHeight,
         long clientWidth, long clientHeight,
         long clientLeft , long clientTop);

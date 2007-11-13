@@ -328,11 +328,23 @@
 			>
 		</File>
 		<File
-			RelativePath=".\test.html"
+			RelativePath=".\test1.html"
 			>
 		</File>
 		<File
 			RelativePath=".\test2.html"
+			>
+		</File>
+		<File
+			RelativePath=".\test3.html"
+			>
+		</File>
+		<File
+			RelativePath=".\test4.html"
+			>
+		</File>
+		<File
+			RelativePath=".\test5.html"
 			>
 		</File>
 	</Files>
