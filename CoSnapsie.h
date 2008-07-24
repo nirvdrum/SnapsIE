@@ -54,14 +54,20 @@ END_COM_MAP()
 
 public:
 
-    STDMETHODIMP saveSnapshot(BSTR outputPath, BSTR frameId);
-
-private:
-
-    STDMETHODIMP panAndScan(HWND hwndBrowser, IUnknown* pDocument, BSTR outputPath,
-        long scrollWidth, long scrollHeight,
-        long clientWidth, long clientHeight,
-        long clientLeft , long clientTop);
+    STDMETHODIMP saveSnapshot(
+        BSTR outputFile,
+        LONG drawableScrollWidth,
+        LONG drawableScrollHeight,
+        LONG drawableClientWidth,
+        LONG drawableClientHeight,
+        LONG drawableClientLeft,
+        LONG drawableClientTop,
+        LONG capturableScrollWidth,
+        LONG capturableScrollHeight,
+        LONG capturableClientWidth,
+        LONG capturableClientHeight,
+        LONG frameBCRLeft,
+        LONG frameBCRTop);
 };
 
 OBJECT_ENTRY_AUTO(__uuidof(CoSnapsie), CCoSnapsie)

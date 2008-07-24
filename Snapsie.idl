@@ -34,7 +34,21 @@ interface IComponentRegistrar : IDispatch
 ]
 interface ISnapsie : IDispatch
 {
-    HRESULT saveSnapshot([in] BSTR outputPath, [in] BSTR frameId);
+    HRESULT saveSnapshot(
+        [in] BSTR outputFile,
+        [in] LONG drawableScrollWidth,
+        [in] LONG drawableScrollHeight,
+        [in] LONG drawableClientWidth,
+        [in] LONG drawableClientHeight,
+        [in] LONG drawableClientLeft,
+        [in] LONG drawableClientTop,
+        [in] LONG capturableScrollWidth,
+        [in] LONG capturableScrollHeight,
+        [in] LONG capturableClientWidth,
+        [in] LONG capturableClientHeight,
+        [in] LONG frameBCRLeft,
+        [in] LONG frameBCRTop);
+
 };
 [
 	uuid(E2A04E04-DCA7-48CF-A9B0-643CB8152E59),

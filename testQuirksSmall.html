@@ -24,21 +24,11 @@ body {
 ! ! ! ! !
 </div>
 </div>
+<script type="text/javascript" src="snapsie.js"></script>
 <script type="text/javascript">
-function save()
-{
-    /*
-    alert(document.body.scrollWidth + ', ' + document.body.scrollHeight + ', '
-        + document.body.clientWidth + ', ' + document.body.clientHeight + ', '
-        + document.body.offsetWidth + ', ' + document.body.offsetHeight);
-    */
-    try {
-        var obj = new ActiveXObject('Snapsie.CoSnapsie');
-        obj.saveSnapshot(document.getElementById('outputPath').value, "");
-    }
-    catch (e) {
-        alert(e + ', ' + (e.message ? e.message : ""));
-    }
+function save() {
+    var outputFile = document.getElementById('outputPath').value;
+    Snapsie.saveSnapshot(outputFile);
 }
 </script>
 </body>
