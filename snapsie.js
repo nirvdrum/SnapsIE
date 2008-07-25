@@ -22,8 +22,8 @@ var Snapsie = new function() {
     }
     
     function showException(e) {
-        //throw e;
-        alert(e + ', ' + (e.message ? e.message : ""));
+        throw e;
+        //alert(e + ', ' + (e.message ? e.message : ""));
     }
     
     function isQuirksMode(inDocument) {
@@ -95,7 +95,6 @@ var Snapsie = new function() {
             nativeObj.saveSnapshot(
                 getCanonicalPath(outputFile),
                 frameId,
-                isQuirksMode(document),
                 drawableElement.scrollWidth,
                 drawableElement.scrollHeight,
                 drawableElement.clientWidth,

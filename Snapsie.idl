@@ -37,7 +37,6 @@ interface ISnapsie : IDispatch
     HRESULT saveSnapshot(
         [in] BSTR outputFile,
         [in] BSTR frameId,
-        [in] BOOL isQuirksMode,
         [in] LONG drawableScrollWidth,
         [in] LONG drawableScrollHeight,
         [in] LONG drawableClientWidth,

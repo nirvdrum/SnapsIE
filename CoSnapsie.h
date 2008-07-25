@@ -57,7 +57,6 @@ public:
     STDMETHODIMP saveSnapshot(
         BSTR outputFile,
         BSTR frameId,
-        BOOL isQuirksMode,
         LONG drawableScrollWidth,
         LONG drawableScrollHeight,
         LONG drawableClientWidth,

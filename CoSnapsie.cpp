@@ -34,7 +34,6 @@ STDMETHODIMP CCoSnapsie::InterfaceSupportsErrorInfo(REFIID riid)
 STDMETHODIMP CCoSnapsie::saveSnapshot(
     BSTR outputFile,
     BSTR frameId,
-    BOOL isQuirksMode,
     LONG drawableScrollWidth,
     LONG drawableScrollHeight,
     LONG drawableClientWidth,
@@ -102,13 +101,15 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(
     // the window of that document or frame, so get the right one here.
 
     if (SysStringLen(frameId) > 0) {
-        CComQIPtr<IHTMLDocument3> spDocument3;
-        CComPtr<IHTMLElement>     spFrame;
-        CComQIPtr<IWebBrowser2>   spFramedBrowser;
-        CComPtr<IDispatch>        spFramedDispatch;
-        CComPtr<IHTMLDocument2>   spFramedDocument;
-        CComPtr<IHTMLDocument3>   spFramedDocument3;
-        CComPtr<IHTMLElement>     spFramedElement;
+        CComQIPtr<IHTMLDocument3>  spDocument3;
+        CComPtr<IHTMLElement>      spFrame;
+        CComQIPtr<IHTMLFrameBase2> spFrameBase;
+        CComQIPtr<IWebBrowser2>    spFramedBrowser;
+        CComPtr<IDispatch>         spFramedDispatch;
+        CComPtr<IHTMLDocument2>    spFramedDocument;
+        CComPtr<IHTMLDocument3>    spFramedDocument3;
+        CComQIPtr<IHTMLDocument5>  spFramedDocument5;
+        CComPtr<IHTMLElement>      spFramedElement;
 
         spDocument3 = spDocument;
         if (spDocument3 == NULL)
@@ -130,14 +131,29 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(
         if (spFramedDocument == NULL)
             return E_FAIL;
 
-        hr = spFramedDocument->get_parentWindow(&spWindow);
-        if (FAILED(hr))
+        spFramedDocument5 = spFramedDocument;
+        if (spFramedDocument5 == NULL)
             return E_FAIL;
 
-        if (isQuirksMode) {
+        CComBSTR compatMode;
+        spFramedDocument5->get_compatMode(&compatMode);
+
+        if (compatMode == L"BackCompat") {
+            hr = spFramedDocument->get_parentWindow(&spWindow);
+            if (FAILED(hr))
+                return E_FAIL;
+
             hr = spFramedDocument->get_body(&spFramedElement);
         }
         else {
+            spFrameBase = spFrame;
+            if (spFrameBase == NULL)
+                return E_FAIL;
+
+            hr = spFrameBase->get_contentWindow(&spWindow);
+            if (FAILED(hr))
+                return E_FAIL;
+
             spFramedDocument3 = spFramedDocument;
             if (spFramedDocument3 == NULL)
                 return E_FAIL;
@@ -280,8 +296,10 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(
             // sized to the client dimensions PLUS the left or top offset.
 
             hr = spWindow->scroll(xStart, yStart);
-            if (FAILED(hr))
+            if (FAILED(hr)) {
+                Error("Failed to scroll window");
                 goto loop_exit;
+            }
 
             RECTL rcBounds = { 0, 0, drawableClientWidth + (2 * drawableClientLeft),
                 drawableClientHeight + (2 * drawableClientTop) };
@@ -307,11 +325,6 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(
     loop_exit:
 
     // save the image
-
-    if (FAILED(hr)) {
-        Error("Failed during draw phase");
-        return E_FAIL;
-    }
 
     image.Save(CW2T(outputFile));
 
