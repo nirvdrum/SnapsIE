@@ -1,4 +1,11 @@
-if (!Snapsie)
+/**
+ * This file wraps the Snapsie ActiveX object, exposing a single saveSnapshot()
+ * method on a singleton object.
+ *
+ * See http://snapsie.sourceforge.net/
+ */
+
+if (!Snapsie) // create the Snapsie singleton?
 var Snapsie = new function() {
     // private fields
     var nativeObj;
@@ -19,23 +26,12 @@ var Snapsie = new function() {
         alert(e + ', ' + (e.message ? e.message : ""));
     }
     
-    function getDrawableElement(inDocument) {
-        if (inDocument.compatMode == 'BackCompat') {
-            // quirks mode
-            return inDocument.getElementsByTagName('body')[0];
-        }
-        else {
-            // standards mode
-            return inDocument.documentElement;
-        }
+    function isQuirksMode(inDocument) {
+        return (inDocument.compatMode == 'BackCompat');
     }
     
-    /**
-     * @param inDocument  the document whose screenshot is being captured
-     */
-    function getCapturableElement(inDocument) {
-        if (inDocument.compatMode == 'BackCompat') {
-            // quirks mode
+    function getDrawableElement(inDocument) {
+        if (isQuirksMode(inDocument)) {
             return inDocument.getElementsByTagName('body')[0];
         }
         else {
@@ -95,27 +91,17 @@ var Snapsie = new function() {
             frameBCR = frame.getBoundingClientRect();
         }
         
-        var capturableElement = getCapturableElement(capturableDocument);
-        var capturableInfo = {
-              overflow  : capturableElement.style.overflow
-            , scrollLeft: capturableElement.scrollLeft
-            , scrollTop : capturableElement.scrollTop
-        };
-        capturableElement.style.overflow = 'hidden';
-        
         try {
             nativeObj.saveSnapshot(
                 getCanonicalPath(outputFile),
+                frameId,
+                isQuirksMode(document),
                 drawableElement.scrollWidth,
                 drawableElement.scrollHeight,
                 drawableElement.clientWidth,
                 drawableElement.clientHeight,
                 drawableElement.clientLeft,
                 drawableElement.clientTop,
-                capturableElement.scrollWidth,
-                capturableElement.scrollHeight,
-                capturableElement.clientWidth,
-                capturableElement.clientHeight,
                 frameBCR.left,
                 frameBCR.top
             );
@@ -124,12 +110,7 @@ var Snapsie = new function() {
             showException(e);
         }
         
-        // revert, in reverse order in case capturableElement and
-        // drawableElement are one and the same
-        
-        capturableElement.style.overflow = capturableInfo.overflow;
-        capturableElement.scrollLeft = capturableInfo.scrollLeft;
-        capturableElement.scrollTop = capturableInfo.scrollTop;
+        // revert
         
         drawableElement.style.overflow = drawableInfo.overflow;
         drawableElement.scrollLeft = drawableInfo.scrollLeft;

@@ -56,16 +56,14 @@ public:
 
     STDMETHODIMP saveSnapshot(
         BSTR outputFile,
+        BSTR frameId,
+        BOOL isQuirksMode,
         LONG drawableScrollWidth,
         LONG drawableScrollHeight,
         LONG drawableClientWidth,
         LONG drawableClientHeight,
         LONG drawableClientLeft,
         LONG drawableClientTop,
-        LONG capturableScrollWidth,
-        LONG capturableScrollHeight,
-        LONG capturableClientWidth,
-        LONG capturableClientHeight,
         LONG frameBCRLeft,
         LONG frameBCRTop);
 };

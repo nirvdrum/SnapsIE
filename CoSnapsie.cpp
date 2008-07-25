@@ -33,21 +33,20 @@ STDMETHODIMP CCoSnapsie::InterfaceSupportsErrorInfo(REFIID riid)
  */
 STDMETHODIMP CCoSnapsie::saveSnapshot(
     BSTR outputFile,
+    BSTR frameId,
+    BOOL isQuirksMode,
     LONG drawableScrollWidth,
     LONG drawableScrollHeight,
     LONG drawableClientWidth,
     LONG drawableClientHeight,
     LONG drawableClientLeft,
     LONG drawableClientTop,
-    LONG capturableScrollWidth,
-    LONG capturableScrollHeight,
-    LONG capturableClientWidth,
-    LONG capturableClientHeight,
     LONG frameBCRLeft,
     LONG frameBCRTop)
 {
     HRESULT hr;
     HWND hwndBrowser;
+
     CComPtr<IOleClientSite>     spClientSite;
     CComQIPtr<IServiceProvider> spISP;
     CComPtr<IWebBrowser2>       spBrowser;
@@ -55,6 +54,17 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(
     CComQIPtr<IHTMLDocument2>   spDocument;
     CComPtr<IHTMLWindow2>       spWindow;
     CComQIPtr<IViewObject2>     spViewObject;
+    CComPtr<IHTMLStyle>         spStyle;
+    CComQIPtr<IHTMLElement2>    spScrollableElement;
+
+    CComBSTR overflow;
+    long scrollLeft;
+    long scrollTop;
+
+    long capturableScrollWidth;
+    long capturableScrollHeight;
+    long capturableClientWidth;
+    long capturableClientHeight;
 
     GetSite(IID_IUnknown, (void**)&spClientSite);
 
@@ -88,7 +98,90 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(
     if (spDocument == NULL)
         return E_FAIL;
 
-    hr = spDocument->get_parentWindow(&spWindow);
+    // we could be rendering the base document, or a frame. We need to scroll
+    // the window of that document or frame, so get the right one here.
+
+    if (SysStringLen(frameId) > 0) {
+        CComQIPtr<IHTMLDocument3> spDocument3;
+        CComPtr<IHTMLElement>     spFrame;
+        CComQIPtr<IWebBrowser2>   spFramedBrowser;
+        CComPtr<IDispatch>        spFramedDispatch;
+        CComPtr<IHTMLDocument2>   spFramedDocument;
+        CComPtr<IHTMLDocument3>   spFramedDocument3;
+        CComPtr<IHTMLElement>     spFramedElement;
+
+        spDocument3 = spDocument;
+        if (spDocument3 == NULL)
+            return E_FAIL;
+
+        hr = spDocument3->getElementById(frameId, &spFrame);
+        if (FAILED(hr))
+            return E_FAIL;
+
+        spFramedBrowser = spFrame;
+        if (spFramedBrowser == NULL)
+            return E_FAIL;
+
+        hr = spFramedBrowser->get_Document(&spFramedDispatch);
+        if (FAILED(hr))
+            return E_FAIL;
+
+        spFramedDocument = spFramedDispatch;
+        if (spFramedDocument == NULL)
+            return E_FAIL;
+
+        hr = spFramedDocument->get_parentWindow(&spWindow);
+        if (FAILED(hr))
+            return E_FAIL;
+
+        if (isQuirksMode) {
+            hr = spFramedDocument->get_body(&spFramedElement);
+        }
+        else {
+            spFramedDocument3 = spFramedDocument;
+            if (spFramedDocument3 == NULL)
+                return E_FAIL;
+
+            hr = spFramedDocument3->get_documentElement(&spFramedElement);
+        }
+        if (spFramedElement == NULL)
+            return E_FAIL;
+
+        // we have to go through this ridiculous shizzle because the correct
+        // scroll dimensions of the frame are not available to javascript;
+        // neither are we able to dynamically hide its scrollbars. It seems
+        // we can't access the body element of the framed document; we always
+        // get back the body of the top level document instead. Accessing it
+        // through COM interfaces seems fine though.
+
+        spScrollableElement = spFramedElement;
+        if (spScrollableElement == NULL)
+            return E_FAIL;
+
+        hr = spScrollableElement->get_runtimeStyle(&spStyle);
+        if (FAILED(hr))
+            return E_FAIL;
+
+        spStyle->get_overflow(&overflow);
+        spStyle->put_overflow(CComBSTR("hidden"));
+
+        spScrollableElement->get_scrollLeft(&scrollLeft);
+        spScrollableElement->get_scrollTop(&scrollTop);
+
+        spScrollableElement->get_scrollWidth(&capturableScrollWidth);
+        spScrollableElement->get_scrollHeight(&capturableScrollHeight);
+        spScrollableElement->get_clientWidth(&capturableClientWidth);
+        spScrollableElement->get_clientHeight(&capturableClientHeight);
+    }
+    else {
+        hr = spDocument->get_parentWindow(&spWindow);
+
+        capturableScrollWidth = drawableScrollWidth;
+        capturableScrollHeight = drawableScrollHeight;
+        capturableClientWidth = drawableClientWidth;
+        capturableClientHeight = drawableClientHeight;
+    }
+
     if (FAILED(hr)) {
         Error("Failed to get parent window for document");
         return E_FAIL;
@@ -205,7 +298,10 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(
             ::BitBlt(imageDC, xStart, yStart,
                 (xEnd - xStart),
                 (yEnd - yStart),
-                hdcOutput, drawableClientLeft, drawableClientTop, SRCCOPY);
+                hdcOutput,
+                (drawableClientLeft + frameBCRLeft),
+                (drawableClientTop + frameBCRTop),
+                SRCCOPY);
         }
     }
     loop_exit:
@@ -224,6 +320,14 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(
     ::ReleaseDC(hwndBrowser, hdcInput);
     DeleteDC(hdcOutput);
     DeleteObject(hBitmap);
+
+    // revert the scrollbars
+
+    if (SysStringLen(frameId) > 0) {
+        spStyle->put_overflow(overflow);
+        spScrollableElement->put_scrollLeft(scrollLeft);
+        spScrollableElement->put_scrollTop(scrollTop);
+    }
 
     return hr;
 }

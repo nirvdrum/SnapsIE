@@ -36,16 +36,14 @@ interface ISnapsie : IDispatch
 {
     HRESULT saveSnapshot(
         [in] BSTR outputFile,
+        [in] BSTR frameId,
+        [in] BOOL isQuirksMode,
         [in] LONG drawableScrollWidth,
         [in] LONG drawableScrollHeight,
         [in] LONG drawableClientWidth,
         [in] LONG drawableClientHeight,
         [in] LONG drawableClientLeft,
         [in] LONG drawableClientTop,
-        [in] LONG capturableScrollWidth,
-        [in] LONG capturableScrollHeight,
-        [in] LONG capturableClientWidth,
-        [in] LONG capturableClientHeight,
         [in] LONG frameBCRLeft,
         [in] LONG frameBCRTop);
 
