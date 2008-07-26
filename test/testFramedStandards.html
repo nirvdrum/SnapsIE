@@ -2,11 +2,11 @@
 
 <head>
 <title>Selenium Remote Control</title>
-<script src="snapsie.js"></script>
+<script src="../snapsie.js"></script>
 <script type="text/javascript">
 function save2() {
     var outputFile = document.getElementById('outputPath').value;
-    Snapsie.saveSnapshot(outputFile, 'selenium_myiframe');
+    new Snapsie().saveSnapshot(outputFile, 'selenium_myiframe');
 }
 </script>
 </head>
@@ -59,7 +59,7 @@ function save2() {
   </tr>
     <tr>
     <td colspan="2" height="70%">
-      <iframe name="selenium_myiframe" id="selenium_myiframe" src="testQuirks.html" height="100%" width="100%"></iframe>
+      <iframe name="selenium_myiframe" id="selenium_myiframe" src="testStandards.html" height="100%" width="100%"></iframe>
     </td>
   </tr>
 </table>

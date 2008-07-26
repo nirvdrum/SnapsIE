@@ -1,30 +1,12 @@
 /**
  * This file wraps the Snapsie ActiveX object, exposing a single saveSnapshot()
- * method on a singleton object.
+ * method on a the object.
  *
  * See http://snapsie.sourceforge.net/
  */
 
-if (!Snapsie) // create the Snapsie singleton?
-var Snapsie = new function() {
-    // private fields
-    var nativeObj;
-    
+function Snapsie() {
     // private methods
-    
-    function init() {
-        try {
-            nativeObj = new ActiveXObject('Snapsie.CoSnapsie');
-        }
-        catch (e) {
-            showException(e);
-        }
-    }
-    
-    function showException(e) {
-        throw e;
-        //alert(e + ', ' + (e.message ? e.message : ""));
-    }
     
     function isQuirksMode(inDocument) {
         return (inDocument.compatMode == 'BackCompat');
@@ -32,7 +14,8 @@ var Snapsie = new function() {
     
     function getDrawableElement(inDocument) {
         if (isQuirksMode(inDocument)) {
-            return inDocument.getElementsByTagName('body')[0];
+            var body = inDocument.getElementsByTagName('body')[0];
+            return body;
         }
         else {
             // standards mode
@@ -62,12 +45,6 @@ var Snapsie = new function() {
      * @param frameId     the frame to capture; omit to capture entire document
      */
     this.saveSnapshot = function(outputFile, frameId) {
-        if (!nativeObj) {
-            var e = new Exception('Snapsie was not properly initialized');
-            showException(e);
-            return;
-        }
-        
         var drawableElement = getDrawableElement(document);
         var drawableInfo = {
               overflow  : drawableElement.style.overflow
@@ -78,7 +55,7 @@ var Snapsie = new function() {
         
         var capturableDocument;
         var frameBCR = { left: 0, top: 0 };
-        if (arguments.length == 1) {
+        if (!frameId) {
             capturableDocument = document;
         }
         else {
@@ -91,23 +68,19 @@ var Snapsie = new function() {
             frameBCR = frame.getBoundingClientRect();
         }
         
-        try {
-            nativeObj.saveSnapshot(
-                getCanonicalPath(outputFile),
-                frameId,
-                drawableElement.scrollWidth,
-                drawableElement.scrollHeight,
-                drawableElement.clientWidth,
-                drawableElement.clientHeight,
-                drawableElement.clientLeft,
-                drawableElement.clientTop,
-                frameBCR.left,
-                frameBCR.top
-            );
-        }
-        catch (e) {
-            showException(e);
-        }
+        var nativeObj = new ActiveXObject('Snapsie.CoSnapsie');
+        nativeObj.saveSnapshot(
+            getCanonicalPath(outputFile),
+            frameId,
+            drawableElement.scrollWidth,
+            drawableElement.scrollHeight,
+            drawableElement.clientWidth,
+            drawableElement.clientHeight,
+            drawableElement.clientLeft,
+            drawableElement.clientTop,
+            frameBCR.left,
+            frameBCR.top
+        );
         
         // revert
         
@@ -115,8 +88,4 @@ var Snapsie = new function() {
         drawableElement.scrollLeft = drawableInfo.scrollLeft;
         drawableElement.scrollTop = drawableInfo.scrollTop;
     }
-    
-    // initializers
-    
-    init();
 };

@@ -1,0 +1,35 @@
+<html>
+<head>
+<title>snapsIE - Free, Open-Source, Scriptable Screen Capture Utility for IE</title>
+<style type="text/css">
+code {
+    background: #def;
+}
+</style>
+</head>
+<body>
+<h1>snapsIE</h1>
+<p>snapsIE is a COM object that implements screen capture for 
+Internet Explorer browser objects. snapsIE can be scripted with Jscript 
+(javascript). It is intended to be used with the <a 
+href="http://selenium.openqa.org">Selenium</a> web test framework to capture screenshots of running tests. I created it because I saw a need for Selenium, and was tired of everyone and their brother trying to sell screenshot software for $20 when it should be free.</p>
+
+<p>The latest version is <strong><a href="http://sourceforge.net/project/showfiles.php?group_id=207486&package_id=248414&release_id=615546">snapsie-0.2</a></strong>.</p>
+
+<p>The <a href="http://sourceforge.net/project/platformdownload.php?group_id=207486&sel_platform=5159">current release distribution</a> contains a single DLL, an accompanying javascript library, and several HTML test files. Follow these steps to install and use:</p>
+
+<ul>
+<li>Install the <a href="http://www.microsoft.com/downloads/details.aspx?familyid=200b2fd9-ae1a-4a14-984d-389c36f85647">VC++ 2005 SP1 Redistributable Pakage</a> from Microsoft's download site. You can skip this step if you have Visual Studio 2005 SP1 installed on your system.</li>
+<li>Unzip <code>snapsie-x.x.x.tar.gz</code>. It contains a DLL, a javascript file, and a test folder containing some HTML files.</li>
+<li>Copy <code>Snapsie.dll</code> to a convenient location, maybe under <em>C:\WINDOWS</em>.</li>
+<li>Register the DLL. Open a command prompt to where you copied the file, and run <code>regsvr32 Snapsie.dll</code> .</li>
+<li>The usual security restrictions for "ActiveX" content apply when using snapsIE in webpages. Depending on your settings, expect to enable privileged access when prompted upon viewing pages that use snapsIE.</li>
+</ul>
+
+<p>For example usage, check <a href="http://snapsie.svn.sourceforge.net/viewvc/snapsie/trunk/testQuirks.html?view=markup">testQuirks.html</a>. Here's the <a href="images/snapsie_test.png">saved PNG output for it</a>. snapsIE also now supports capturing framed content! For an example of that, see <a href="http://snapsie.svn.sourceforge.net/viewvc/snapsie/trunk/testFramedQuirks.html?view=markup">testFramedQuirks.html</a>.</p>
+
+<p>By the way, feel free to use "snapsIE" and "Snapsie" interchangably. :)</p>
+
+<p><em>- Haw-Bin Chai</em></p>
+</body>
+</html>

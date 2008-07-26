@@ -4,9 +4,7 @@
 body {
     margin: 0;
     border: solid 15px #ddd;
-}
-.bigtext {
-    font-size: 500pt;
+
 }
 </style>
 </head>
@@ -26,11 +24,11 @@ body {
 ! ! ! ! !
 </div>
 </div>
-<script type="text/javascript" src="snapsie.js"></script>
+<script type="text/javascript" src="../snapsie.js"></script>
 <script type="text/javascript">
 function save() {
     var outputFile = document.getElementById('outputPath').value;
-    Snapsie.saveSnapshot(outputFile);
+    new Snapsie().saveSnapshot(outputFile);
 }
 </script>
 </body>
