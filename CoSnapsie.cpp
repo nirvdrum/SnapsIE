@@ -32,6 +32,7 @@ STDMETHODIMP CCoSnapsie::InterfaceSupportsErrorInfo(REFIID riid)
  * @link http://iecapt.sourceforge.net/
  */
 STDMETHODIMP CCoSnapsie::saveSnapshot(
+    IUnknown *pWindow,
     BSTR outputFile,
     BSTR frameId,
     LONG drawableScrollWidth,
@@ -80,22 +81,55 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(
 
     hr = spISP->QueryService(IID_IWebBrowserApp, IID_IWebBrowser2,
          (void **)&spBrowser);
-    if (FAILED(hr))
-        return E_FAIL;
 
-    hr = spBrowser->get_HWND((long*)&hwndBrowser);
     if (FAILED(hr)) {
-        Error("Failed to get HWND for browser (is this a frame?)");
-        return E_FAIL;
+        // if we can't query the client site for IWebBrowser2, we're probably
+        // in an HTA. Obtain the HWND and IHTMLDocument2 interface pointers
+        // from the window that is passed in.
+        // http://groups.google.com/group/microsoft.public.vc.language/browse_thread/thread/f8987a31d47cccfe/884cb8f13423039e
+        CComQIPtr<IHTMLWindow2> spContainer = pWindow;
+        if (spContainer == NULL) {
+            Error("Failed to obtain IHTMLWindow2 from container");
+            return E_FAIL;
+        }
+
+        hr = spContainer->get_document(&spDocument);
+        if (FAILED(hr))
+            return E_FAIL;
+
+        CComQIPtr<IOleWindow> spOleWindow;
+        spOleWindow = spDocument;
+        if (spOleWindow == NULL) {
+            Error("Failed to obtain IOleWindow from document");
+            return E_FAIL;
+        }
+
+        hr = spOleWindow->GetWindow(&hwndBrowser);
+        if (FAILED(hr)) {
+            Error("Failed to obtain HWND from OLE window");
+            return E_FAIL;
+        }
+
+        while (GetParent(hwndBrowser) != NULL) {
+            hwndBrowser = GetParent(hwndBrowser);
+        }
     }
+    else {
+        hr = spBrowser->get_HWND((long*)&hwndBrowser);
+        if (FAILED(hr)) {
+            Error("Failed to get HWND for browser (is this a frame?)");
+            return E_FAIL;
+        }
 
-    hr = spBrowser->get_Document(&spDispatch);
-    if (FAILED(hr))
-        return E_FAIL;
+        CComPtr<IDispatch> spDispatch;
+        hr = spBrowser->get_Document(&spDispatch);
+        if (FAILED(hr))
+            return E_FAIL;
 
-    spDocument = spDispatch;
-    if (spDocument == NULL)
-        return E_FAIL;
+        spDocument = spDispatch;
+        if (spDocument == NULL)
+            return E_FAIL;
+    }
 
     // we could be rendering the base document, or a frame. We need to scroll
     // the window of that document or frame, so get the right one here.
@@ -307,7 +341,7 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(
             hr = spViewObject->Draw(DVASPECT_CONTENT, -1, NULL, NULL, hdcInput,
                 hdcOutput, &rcBounds, NULL, NULL, 0);
             if (FAILED(hr)) {
-                Error("Draw() failed during pan and scan foo");
+                Error("Draw() failed during pan and scan");
                 goto loop_exit;
             }
 
