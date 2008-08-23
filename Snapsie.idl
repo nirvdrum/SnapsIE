@@ -35,7 +35,6 @@ interface IComponentRegistrar : IDispatch
 interface ISnapsie : IDispatch
 {
     HRESULT saveSnapshot(
-        [in] IUnknown *pWindow,
         [in] BSTR outputFile,
         [in] BSTR frameId,
         [in] LONG drawableScrollWidth,

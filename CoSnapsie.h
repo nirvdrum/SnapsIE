@@ -55,7 +55,6 @@ END_COM_MAP()
 public:
 
     STDMETHODIMP saveSnapshot(
-        IUnknown *pWindow,
         BSTR outputFile,
         BSTR frameId,
         LONG drawableScrollWidth,

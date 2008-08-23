@@ -70,7 +70,6 @@ function Snapsie() {
         
         var nativeObj = new ActiveXObject('Snapsie.CoSnapsie');
         nativeObj.saveSnapshot(
-            window.top,
             getCanonicalPath(outputFile),
             frameId,
             drawableElement.scrollWidth,

@@ -6,7 +6,6 @@
 #include <exdisp.h>
 
 
-
 // CCoSnapsie
 
 STDMETHODIMP CCoSnapsie::InterfaceSupportsErrorInfo(REFIID riid)
@@ -32,7 +31,6 @@ STDMETHODIMP CCoSnapsie::InterfaceSupportsErrorInfo(REFIID riid)
  * @link http://iecapt.sourceforge.net/
  */
 STDMETHODIMP CCoSnapsie::saveSnapshot(
-    IUnknown *pWindow,
     BSTR outputFile,
     BSTR frameId,
     LONG drawableScrollWidth,
@@ -52,7 +50,7 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(
     CComPtr<IWebBrowser2>       spBrowser;
     CComPtr<IDispatch>          spDispatch; 
     CComQIPtr<IHTMLDocument2>   spDocument;
-    CComPtr<IHTMLWindow2>       spWindow;
+    CComPtr<IHTMLWindow2>       spScrollableWindow;
     CComQIPtr<IViewObject2>     spViewObject;
     CComPtr<IHTMLStyle>         spStyle;
     CComQIPtr<IHTMLElement2>    spScrollableElement;
@@ -84,21 +82,23 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(
 
     if (FAILED(hr)) {
         // if we can't query the client site for IWebBrowser2, we're probably
-        // in an HTA. Obtain the HWND and IHTMLDocument2 interface pointers
-        // from the window that is passed in.
+        // in an HTA. Obtain the IHTMLWindow2 interface pointer by directly
+        // querying the client site's service provider.
         // http://groups.google.com/group/microsoft.public.vc.language/browse_thread/thread/f8987a31d47cccfe/884cb8f13423039e
-        CComQIPtr<IHTMLWindow2> spContainer = pWindow;
-        if (spContainer == NULL) {
-            Error("Failed to obtain IHTMLWindow2 from container");
+        CComPtr<IHTMLWindow2> spWindow;
+        hr = spISP->QueryService(IID_IHTMLWindow2, &spWindow);
+        if (FAILED(hr)) {
+            Error("Failed to obtain IHTMLWindow2 from service provider");
             return E_FAIL;
         }
 
-        hr = spContainer->get_document(&spDocument);
-        if (FAILED(hr))
+        hr = spWindow->get_document(&spDocument);
+        if (FAILED(hr)) {
+            Error("Failed to obtain IHTMLDocument2 from window");
             return E_FAIL;
+        }
 
-        CComQIPtr<IOleWindow> spOleWindow;
-        spOleWindow = spDocument;
+        CComQIPtr<IOleWindow> spOleWindow = spDocument;
         if (spOleWindow == NULL) {
             Error("Failed to obtain IOleWindow from document");
             return E_FAIL;
@@ -110,9 +110,7 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(
             return E_FAIL;
         }
 
-        while (GetParent(hwndBrowser) != NULL) {
-            hwndBrowser = GetParent(hwndBrowser);
-        }
+        hwndBrowser = GetAncestor(hwndBrowser, GA_ROOTOWNER);
     }
     else {
         hr = spBrowser->get_HWND((long*)&hwndBrowser);
@@ -173,7 +171,7 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(
         spFramedDocument5->get_compatMode(&compatMode);
 
         if (compatMode == L"BackCompat") {
-            hr = spFramedDocument->get_parentWindow(&spWindow);
+            hr = spFramedDocument->get_parentWindow(&spScrollableWindow);
             if (FAILED(hr))
                 return E_FAIL;
 
@@ -184,7 +182,7 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(
             if (spFrameBase == NULL)
                 return E_FAIL;
 
-            hr = spFrameBase->get_contentWindow(&spWindow);
+            hr = spFrameBase->get_contentWindow(&spScrollableWindow);
             if (FAILED(hr))
                 return E_FAIL;
 
@@ -224,7 +222,7 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(
         spScrollableElement->get_clientHeight(&capturableClientHeight);
     }
     else {
-        hr = spDocument->get_parentWindow(&spWindow);
+        hr = spDocument->get_parentWindow(&spScrollableWindow);
 
         capturableScrollWidth = drawableScrollWidth;
         capturableScrollHeight = drawableScrollHeight;
@@ -329,7 +327,7 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(
             // device we draw on isn't sized to the client dimensions; it's
             // sized to the client dimensions PLUS the left or top offset.
 
-            hr = spWindow->scroll(xStart, yStart);
+            hr = spScrollableWindow->scroll(xStart, yStart);
             if (FAILED(hr)) {
                 Error("Failed to scroll window");
                 goto loop_exit;
