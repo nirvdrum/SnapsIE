@@ -476,8 +476,6 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(
 
     delete bitmap;
     delete graphics;
-    delete color;
-    delete brush;
 
     GdiplusShutdown(gdiplusToken);
         
