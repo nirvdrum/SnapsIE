@@ -649,9 +649,6 @@ LRESULT CALLBACK MyProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 	RemoveProp(hwnd, L"_old_proc_");
 	SetWindowLongPtr(hwnd, GWL_WNDPROC, (LONG_PTR) (hdl));
 
-	//FILE* fp = fopen("C:\\dev\\workspaces\\SnapsIE\\test\\myproc.txt", "a");
-	//fprintf(fp, "Old handle: 0x%x\n", hdl);
-
 	switch (message)
 	{
 		case WM_GETMINMAXINFO:
@@ -663,22 +660,13 @@ LRESULT CALLBACK MyProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 			minMaxInfo->ptMaxTrackSize.x = maxWidth;
 			minMaxInfo->ptMaxTrackSize.y = maxHeight;
 
-			//fprintf(fp, "Got a WM_GETMINMAXINFO\n");
-
-			//fclose(fp);
-
-			break;
+			return 0;
 		}
 
 		default:
-		return CallWindowProc(
-			(WNDPROC) (hdl),
-			hwnd,
-			message,
-			wParam,
-			lParam);
-		break;
-
+		{
+			return CallWindowProc((WNDPROC) hdl, hwnd, message,	wParam,	lParam);
+		}
 	}
 }
 
