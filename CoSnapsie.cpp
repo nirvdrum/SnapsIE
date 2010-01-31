@@ -277,13 +277,6 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(
         } 
     }
 
-    spDocument->get_parentWindow(&spScrollableWindow);
-    
-    VARIANT buffering;
-    spScrollableWindow->get_offscreenBuffering(&buffering);
-
-    bool blah = buffering.boolVal;
-
     long width, height;
     spBrowser->get_Width(&width);
     spBrowser->get_Height(&height);
@@ -295,12 +288,6 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(
 
     HWND yo;
     spBrowser->get_HWND((SHANDLE_PTR*)&yo);
-
-    /*
-    LONG_PTR hey = GetWindowLongPtr(yo, GWLP_WNDPROC);
-    hey = GetWindowLongPtr(hwndBrowser, GWLP_WNDPROC);
-    originalProc = (WNDPROC) GetWindowLongPtr(yo, GWLP_WNDPROC);
-    */
 
     DWORD parentID, thisID, currentID;
     GetWindowThreadProcessId(yo, &parentID);
