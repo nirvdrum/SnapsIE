@@ -1,0 +1,15 @@
+Debug/
+Release/
+test/*.png
+
+# User-specific options for Visual Studio solution.
+Snapsie.suo
+
+# IntelliSense database -- will be rebuilt if missing.
+Snapsie.ncb
+
+# Auto-generated files.
+Snapsie_i.c
+Snapsie_p.c
+Snapsie.h
+dlldata.c
