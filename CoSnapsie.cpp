@@ -277,9 +277,6 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(
         } 
     }
 
-    long width, height;
-    spBrowser->get_Width(&width);
-    spBrowser->get_Height(&height);
 
     // create the HDC objects
     HDC hdcInput = ::GetDC(hwndBrowser);
@@ -293,10 +290,6 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(
     if (spViewObject == NULL)
         return E_FAIL;
  
-
-    long myHeight, myWidth;
-    spBrowser->get_Height(&myHeight);
-    spBrowser->get_Width(&myWidth);
 
     /*
     CImage image;
@@ -331,6 +324,10 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(
 
     HDC hdcOutput = CreateCompatibleDC(hdcInput);
 
+
+	long originalHeight, originalWidth;
+    spBrowser->get_Height(&originalHeight);
+    spBrowser->get_Width(&originalWidth);
 
 	// Get the path to this DLL so we can load it up with LoadLibrary.
     TCHAR dllPath[_MAX_PATH];
@@ -369,7 +366,7 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(
     RECT clientRect;
     GetClientRect(hwndBrowser, &clientRect);
 
-    int chromeWidth = myWidth - viewportWidth.intVal;
+    int chromeWidth = originalWidth - viewportWidth.intVal;
     int chromeHeight = windowRect.top * 2;
 
     maxWidth = documentWidth.intVal + chromeWidth;
@@ -392,8 +389,8 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(
     if (status != 0)
         PrintError(L"Save");
 
-    spBrowser->put_Height(myHeight);
-    spBrowser->put_Width(myWidth);
+    spBrowser->put_Height(originalHeight);
+    spBrowser->put_Width(originalWidth);
 
     delete bitmap;
     delete graphics;
