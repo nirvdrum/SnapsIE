@@ -242,9 +242,6 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(
             return E_FAIL;
         }
 
-        //pStyle->put_borderStyle(CComBSTR("none"));
-        //pStyle->put_overflow(CComBSTR("hidden"));
-
         pElement->QueryInterface(IID_IHTMLElementRender, (void **) &pRender);
 
         if (pRender == (IHTMLElementRender *) NULL)
@@ -279,17 +276,6 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(
             pServiceProvider->Release();
         } 
     }
-
-
-    //HDC hdcMemory = CreateCompatibleDC(NULL);
-    //HBITMAP hBitmap = CreateCompatibleBitmap(GetDC(hwndBrowser), documentWidth.intVal, documentHeight.intVal);
-    //HGDIOBJ hOld = SelectObject(hdcMemory, hBitmap);
-    //SendMessage(hwndBrowser, WM_PAINT, (WPARAM)hdcMemory, 0);
-    //SendMessage(hwndBrowser, WM_PRINT, (WPARAM) hdcMemory, PRF_CLIENT | PRF_CHILDREN | PRF_OWNED);
-    //SendMessage(hwndBrowser, WM_PRINTCLIENT, (WPARAM)hdcMemory, PRF_CLIENT | PRF_CHILDREN | PRF_OWNED | PRF_ERASEBKGND );
-    //PrintWindow(hwndBrowser, hdcMemory, PW_CLIENTONLY);
-
-        //pRender->DrawToDC(hdcMemory);
 
     spDocument->get_parentWindow(&spScrollableWindow);
     
