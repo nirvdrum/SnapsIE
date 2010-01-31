@@ -15,42 +15,42 @@
 // CCoSnapsie
 
 class ATL_NO_VTABLE CCoSnapsie :
-	public CComObjectRootEx<CComSingleThreadModel>,
-	public CComCoClass<CCoSnapsie, &CLSID_CoSnapsie>,
-	public ISupportErrorInfo,
-	public IObjectWithSiteImpl<CCoSnapsie>,
-	public IDispatchImpl<ISnapsie, &IID_ISnapsie, &LIBID_SnapsieLib, /*wMajor =*/ 1, /*wMinor =*/ 0>
+    public CComObjectRootEx<CComSingleThreadModel>,
+    public CComCoClass<CCoSnapsie, &CLSID_CoSnapsie>,
+    public ISupportErrorInfo,
+    public IObjectWithSiteImpl<CCoSnapsie>,
+    public IDispatchImpl<ISnapsie, &IID_ISnapsie, &LIBID_SnapsieLib, /*wMajor =*/ 1, /*wMinor =*/ 0>
 {
 public:
-	CCoSnapsie()
-	{
-	}
+    CCoSnapsie()
+    {
+    }
 
 
 DECLARE_REGISTRY_RESOURCEID(IDR_COSNAPSIE)
 
 
 BEGIN_COM_MAP(CCoSnapsie)
-	COM_INTERFACE_ENTRY(ISnapsie)
-	COM_INTERFACE_ENTRY(IDispatch)
-	COM_INTERFACE_ENTRY(ISupportErrorInfo)
-	COM_INTERFACE_ENTRY(IObjectWithSite)
+    COM_INTERFACE_ENTRY(ISnapsie)
+    COM_INTERFACE_ENTRY(IDispatch)
+    COM_INTERFACE_ENTRY(ISupportErrorInfo)
+    COM_INTERFACE_ENTRY(IObjectWithSite)
 END_COM_MAP()
 
 // ISupportsErrorInfo
-	STDMETHOD(InterfaceSupportsErrorInfo)(REFIID riid);
+    STDMETHOD(InterfaceSupportsErrorInfo)(REFIID riid);
 
 
-	DECLARE_PROTECT_FINAL_CONSTRUCT()
+    DECLARE_PROTECT_FINAL_CONSTRUCT()
 
-	HRESULT FinalConstruct()
-	{
-		return S_OK;
-	}
+    HRESULT FinalConstruct()
+    {
+        return S_OK;
+    }
 
-	void FinalRelease()
-	{
-	}
+    void FinalRelease()
+    {
+    }
 
 public:
 
@@ -66,7 +66,7 @@ public:
         LONG frameBCRLeft,
         LONG frameBCRTop);
 
-	LRESULT WINAPI CallWndProc(int, WPARAM, LPARAM);
+    LRESULT WINAPI CallWndProc(int, WPARAM, LPARAM);
 };
 
 OBJECT_ENTRY_AUTO(__uuidof(CoSnapsie), CCoSnapsie)
