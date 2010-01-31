@@ -51,7 +51,6 @@ function Snapsie() {
             , scrollLeft: drawableElement.scrollLeft
             , scrollTop : drawableElement.scrollTop
         };
-        drawableElement.style.overflow = 'hidden';
         
         var capturableDocument;
         var frameBCR = { left: 0, top: 0 };
@@ -81,11 +80,5 @@ function Snapsie() {
             frameBCR.left,
             frameBCR.top
         );
-        
-        // revert
-        
-        drawableElement.style.overflow = drawableInfo.overflow;
-        drawableElement.scrollLeft = drawableInfo.scrollLeft;
-        drawableElement.scrollTop = drawableInfo.scrollTop;
     }
 };

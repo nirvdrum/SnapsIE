@@ -37,6 +37,7 @@
 #include "resource.h"
 #include <atlbase.h>
 #include <atlcom.h>
+#include <atlstr.h>
 #include <atlimage.h>
 
 using namespace ATL;

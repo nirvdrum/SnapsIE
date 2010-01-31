@@ -4,9 +4,66 @@
 #include "CoSnapsie.h"
 #include <mshtml.h>
 #include <exdisp.h>
+#include <assert.h>
+#include <windows.h>
+#include <shlguid.h>
+#include <shlguid.h>
+#include <shlobj.h>
+#include <exdisp.h>
+#include <gdiplus.h>
+
+LRESULT CALLBACK MyProc(HWND, UINT, WPARAM, LPARAM);
+
+WNDPROC originalProc;
+
+// define a data segment
+#pragma data_seg("SHARED")
+HHOOK nextHook = NULL;
+HWND ie = NULL;
+int maxWidth = 0;
+int maxHeight = 0;
+#pragma data_seg()
+
+#pragma comment(linker, "/section:SHARED,RWS")
+
+// VisualStudio helper for getting the DLL's filename.
+EXTERN_C IMAGE_DOS_HEADER __ImageBase;
 
 
 // CCoSnapsie
+
+using namespace Gdiplus;
+
+int GetEncoderClsid(const WCHAR* format, CLSID* pClsid)
+{
+   UINT  num = 0;          // number of image encoders
+   UINT  size = 0;         // size of the image encoder array in bytes
+
+   ImageCodecInfo* pImageCodecInfo = NULL;
+
+   GetImageEncodersSize(&num, &size);
+   if(size == 0)
+      return -1;  // Failure
+
+   pImageCodecInfo = (ImageCodecInfo*)(malloc(size));
+   if(pImageCodecInfo == NULL)
+      return -1;  // Failure
+
+   GetImageEncoders(num, size, pImageCodecInfo);
+
+   for(UINT j = 0; j < num; ++j)
+   {
+      if( wcscmp(pImageCodecInfo[j].MimeType, format) == 0 )
+      {
+         *pClsid = pImageCodecInfo[j].Clsid;
+         free(pImageCodecInfo);
+         return j;  // Success
+      }    
+   }
+
+   free(pImageCodecInfo);
+   return -1;  // Failure
+}
 
 STDMETHODIMP CCoSnapsie::InterfaceSupportsErrorInfo(REFIID riid)
 {
@@ -21,6 +78,31 @@ STDMETHODIMP CCoSnapsie::InterfaceSupportsErrorInfo(REFIID riid)
             return S_OK;
     }
     return S_FALSE;
+}
+
+// Taken from MSDN: ms-help://MS.MSDNQTR.v80.en/MS.MSDN.v80/MS.WIN32COM.v10.en/debug/base/retrieving_the_last_error_code.htm
+void PrintError(LPTSTR lpszFunction)
+{
+	TCHAR szBuf[80]; 
+    LPVOID lpMsgBuf;
+    DWORD dw = GetLastError(); 
+
+    FormatMessage(
+        FORMAT_MESSAGE_ALLOCATE_BUFFER | 
+        FORMAT_MESSAGE_FROM_SYSTEM,
+        NULL,
+        dw,
+        MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+        (LPTSTR) &lpMsgBuf,
+        0, NULL );
+
+    wsprintf(szBuf, 
+        L"%s failed with error %d: %s", 
+        lpszFunction, dw, lpMsgBuf); 
+ 
+    MessageBox(NULL, szBuf, L"Error", MB_OK); 
+
+    LocalFree(lpMsgBuf);
 }
 
 /**
@@ -50,10 +132,19 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(
     CComPtr<IWebBrowser2>       spBrowser;
     CComPtr<IDispatch>          spDispatch; 
     CComQIPtr<IHTMLDocument2>   spDocument;
+	CComQIPtr<IHTMLDocument3>   doc3;
     CComPtr<IHTMLWindow2>       spScrollableWindow;
     CComQIPtr<IViewObject2>     spViewObject;
     CComPtr<IHTMLStyle>         spStyle;
     CComQIPtr<IHTMLElement2>    spScrollableElement;
+
+	CComVariant documentHeight;
+	CComVariant documentWidth;
+	CComVariant viewportHeight;
+	CComVariant viewportWidth;
+
+	IHTMLElement       *pElement = (IHTMLElement *) NULL;
+	IHTMLElementRender *pRender = (IHTMLElementRender *) NULL;
 
     CComBSTR overflow;
     long scrollLeft;
@@ -113,146 +204,441 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(
         hwndBrowser = GetAncestor(hwndBrowser, GA_ROOTOWNER);
     }
     else {
-        hr = spBrowser->get_HWND((long*)&hwndBrowser);
-        if (FAILED(hr)) {
-            Error("Failed to get HWND for browser (is this a frame?)");
-            return E_FAIL;
-        }
+		hr = spBrowser->get_HWND((long*)&hwndBrowser);
+		if (FAILED(hr)) {
+			Error("Failed to get HWND for browser (is this a frame?)");
+			return E_FAIL;
+		}
 
-        CComPtr<IDispatch> spDispatch;
-        hr = spBrowser->get_Document(&spDispatch);
-        if (FAILED(hr))
-            return E_FAIL;
+		ie = GetAncestor(hwndBrowser, GA_ROOTOWNER);
 
-        spDocument = spDispatch;
-        if (spDocument == NULL)
-            return E_FAIL;
+		CComPtr<IDispatch> spDispatch;
+		hr = spBrowser->get_Document(&spDispatch);
+		if (FAILED(hr))
+			return E_FAIL;
+
+		spDocument = spDispatch;
+		if (spDocument == NULL)
+			return E_FAIL;
+
+		spDocument->get_body(&pElement);
+
+		if (pElement == (IHTMLElement *) NULL)
+			return E_FAIL;
+
+
+		pElement->getAttribute(CComBSTR("scrollHeight"), 0, &documentHeight);
+		pElement->getAttribute(CComBSTR("scrollWidth"), 0, &documentWidth);
+		pElement->getAttribute(CComBSTR("clientHeight"), 0, &viewportHeight);
+		pElement->getAttribute(CComBSTR("clientWidth"), 0, &viewportWidth);
+
+		IHTMLStyle* pStyle;
+		hr = pElement->get_style(&pStyle);
+		if (FAILED(hr))
+		{
+			PrintError(L"Getting style");
+
+			return E_FAIL;
+		}
+
+		//pStyle->put_borderStyle(CComBSTR("none"));
+		//pStyle->put_overflow(CComBSTR("hidden"));
+
+		pElement->QueryInterface(IID_IHTMLElementRender, (void **) &pRender);
+
+		if (pRender == (IHTMLElementRender *) NULL)
+			return E_FAIL;
+
+
+
+		IServiceProvider* pServiceProvider = NULL;
+		if (SUCCEEDED(spBrowser->QueryInterface(
+							IID_IServiceProvider, 
+							(void**)&pServiceProvider)))
+		{
+			IOleWindow* pWindow = NULL;
+			if (SUCCEEDED(pServiceProvider->QueryService(
+							SID_SShellBrowser,
+							IID_IOleWindow,
+							(void**)&pWindow)))
+			{
+
+				if (SUCCEEDED(pWindow->GetWindow(&hwndBrowser)))
+				{
+					hwndBrowser = FindWindowEx(hwndBrowser, NULL, _T("Shell DocObject View"), NULL);
+					if (hwndBrowser)
+					{
+						hwndBrowser = FindWindowEx(hwndBrowser, NULL, _T("Internet Explorer_Server"), NULL);
+					}
+				}
+
+				pWindow->Release();
+			}
+		 
+			pServiceProvider->Release();
+		} 
     }
 
-    // we could be rendering the base document, or a frame. We need to scroll
-    // the window of that document or frame, so get the right one here.
 
-    if (SysStringLen(frameId) > 0) {
-        CComQIPtr<IHTMLDocument3>  spDocument3;
-        CComPtr<IHTMLElement>      spFrame;
-        CComQIPtr<IHTMLFrameBase2> spFrameBase;
-        CComQIPtr<IWebBrowser2>    spFramedBrowser;
-        CComPtr<IDispatch>         spFramedDispatch;
-        CComPtr<IHTMLDocument2>    spFramedDocument;
-        CComPtr<IHTMLDocument3>    spFramedDocument3;
-        CComQIPtr<IHTMLDocument5>  spFramedDocument5;
-        CComPtr<IHTMLElement>      spFramedElement;
+	//HDC hdcMemory = CreateCompatibleDC(NULL);
+	//HBITMAP hBitmap = CreateCompatibleBitmap(GetDC(hwndBrowser), documentWidth.intVal, documentHeight.intVal);
+	//HGDIOBJ hOld = SelectObject(hdcMemory, hBitmap);
+	//SendMessage(hwndBrowser, WM_PAINT, (WPARAM)hdcMemory, 0);
+	//SendMessage(hwndBrowser, WM_PRINT, (WPARAM) hdcMemory, PRF_CLIENT | PRF_CHILDREN | PRF_OWNED);
+	//SendMessage(hwndBrowser, WM_PRINTCLIENT, (WPARAM)hdcMemory, PRF_CLIENT | PRF_CHILDREN | PRF_OWNED | PRF_ERASEBKGND );
+	//PrintWindow(hwndBrowser, hdcMemory, PW_CLIENTONLY);
 
-        spDocument3 = spDocument;
-        if (spDocument3 == NULL)
-            return E_FAIL;
+		//pRender->DrawToDC(hdcMemory);
 
-        hr = spDocument3->getElementById(frameId, &spFrame);
-        if (FAILED(hr))
-            return E_FAIL;
+	spDocument->get_parentWindow(&spScrollableWindow);
+	
+	VARIANT buffering;
+	spScrollableWindow->get_offscreenBuffering(&buffering);
 
-        spFramedBrowser = spFrame;
-        if (spFramedBrowser == NULL)
-            return E_FAIL;
+	bool blah = buffering.boolVal;
 
-        hr = spFramedBrowser->get_Document(&spFramedDispatch);
-        if (FAILED(hr))
-            return E_FAIL;
+	long width, height;
+	spBrowser->get_Width(&width);
+	spBrowser->get_Height(&height);
 
-        spFramedDocument = spFramedDispatch;
-        if (spFramedDocument == NULL)
-            return E_FAIL;
+	//assert (false);
 
-        spFramedDocument5 = spFramedDocument;
-        if (spFramedDocument5 == NULL)
-            return E_FAIL;
+	int fullScreenY = GetSystemMetrics(SM_CYFULLSCREEN);
+	int maximizedY = GetSystemMetrics(SM_CYMAXIMIZED);
 
-        CComBSTR compatMode;
-        spFramedDocument5->get_compatMode(&compatMode);
+	HWND yo;
+	spBrowser->get_HWND((SHANDLE_PTR*)&yo);
 
-        if (compatMode == L"BackCompat") {
-            hr = spFramedDocument->get_parentWindow(&spScrollableWindow);
-            if (FAILED(hr))
-                return E_FAIL;
+	/*
+	LONG_PTR hey = GetWindowLongPtr(yo, GWLP_WNDPROC);
+	hey = GetWindowLongPtr(hwndBrowser, GWLP_WNDPROC);
+	originalProc = (WNDPROC) GetWindowLongPtr(yo, GWLP_WNDPROC);
+	*/
 
-            hr = spFramedDocument->get_body(&spFramedElement);
-        }
-        else {
-            spFrameBase = spFrame;
-            if (spFrameBase == NULL)
-                return E_FAIL;
+	DWORD parentID, thisID, currentID;
+	GetWindowThreadProcessId(yo, &parentID);
+	GetWindowThreadProcessId(hwndBrowser, &thisID);
+	currentID = GetCurrentProcessId();
 
-            hr = spFrameBase->get_contentWindow(&spScrollableWindow);
-            if (FAILED(hr))
-                return E_FAIL;
+	LPTSTR dllPath = new TCHAR[_MAX_PATH];
+	GetModuleFileName((HINSTANCE) &__ImageBase, dllPath, _MAX_PATH);
 
-            spFramedDocument3 = spFramedDocument;
-            if (spFramedDocument3 == NULL)
-                return E_FAIL;
+	HINSTANCE hinstDLL = LoadLibrary(dllPath);
+	HOOKPROC hkprcSysMsg = (HOOKPROC)GetProcAddress(hinstDLL, "CallWndProc");
+	if (hkprcSysMsg == NULL)
+		PrintError(L"GetProcAddress");
 
-            hr = spFramedDocument3->get_documentElement(&spFramedElement);
-        }
-        if (spFramedElement == NULL)
-            return E_FAIL;
+	//nextHook = SetWindowsHookEx(WH_CALLWNDPROC, CallWndProc, NULL, GetCurrentThreadId());
+	nextHook = SetWindowsHookEx(WH_CALLWNDPROC, hkprcSysMsg, hinstDLL, 0);
+	//nextHook = SetWindowsHookEx(WH_CALLWNDPROCRET, hkprcSysMsg, hinstDLL, 0);
+	//nextHook = SetWindowsHookEx(WH_CBT, CBTProc, NULL, GetCurrentThreadId());
+	//nextHook = SetWindowsHookEx(WH_CBT, hkprcSysMsg, hinstDLL, 0);
+	//nextHook = SetWindowsHookEx(WH_GETMESSAGE, hkprcSysMsg, hinstDLL, 0);
+	if (nextHook == 0)
+		PrintError(L"SetWindowsHookEx");
 
-        // we have to go through this ridiculous shizzle because the correct
-        // scroll dimensions of the frame are not available to javascript;
-        // neither are we able to dynamically hide its scrollbars. It seems
-        // we can't access the body element of the framed document; we always
-        // get back the body of the top level document instead. Accessing it
-        // through COM interfaces seems fine though.
+	/*
+	originalProc = (WNDPROC) SetWindowLongPtr(ie, GWLP_WNDPROC, (LONG) MyProc);
+	if (originalProc == 0)
+		PrintError(L"GetWindowLongPtr");
+	*/
 
-        spScrollableElement = spFramedElement;
-        if (spScrollableElement == NULL)
-            return E_FAIL;
+	//::MoveWindow(ie, 0, 0, documentWidth.intVal, documentHeight.intVal, TRUE);
 
-        hr = spScrollableElement->get_runtimeStyle(&spStyle);
-        if (FAILED(hr))
-            return E_FAIL;
+	/*
+	hr = spBrowser->put_Height(documentHeight.intVal);
+	if (FAILED(hr))
+	{
+		PrintError(L"PutHeight");
+	}
+	spBrowser->put_Width(documentWidth.intVal * 100);
+	*/
 
-        spStyle->get_overflow(&overflow);
-        spStyle->put_overflow(CComBSTR("hidden"));
+	long newWidth, newHeight;
+	spBrowser->get_Width(&newWidth);
+	spBrowser->get_Height(&newHeight);
 
-        spScrollableElement->get_scrollLeft(&scrollLeft);
-        spScrollableElement->get_scrollTop(&scrollTop);
 
-        spScrollableElement->get_scrollWidth(&capturableScrollWidth);
-        spScrollableElement->get_scrollHeight(&capturableScrollHeight);
-        spScrollableElement->get_clientWidth(&capturableClientWidth);
-        spScrollableElement->get_clientHeight(&capturableClientHeight);
-    }
-    else {
-        hr = spDocument->get_parentWindow(&spScrollableWindow);
-
-        capturableScrollWidth = drawableScrollWidth;
-        capturableScrollHeight = drawableScrollHeight;
-        capturableClientWidth = drawableClientWidth;
-        capturableClientHeight = drawableClientHeight;
-    }
-
-    if (FAILED(hr)) {
-        Error("Failed to get parent window for document");
-        return E_FAIL;
-    }
-
-    // THANK YOU Mark Finkle!
-    // Nobody else seems to know how to get IViewObject2?!
-    // http://starkravingfinkle.org/blog/2004/09/
-
-    spViewObject = spDocument;
-    if (spViewObject == NULL)
-        return E_FAIL;
-
-    // create the HDC objects
-
+	// create the HDC objects
     HDC hdcInput = ::GetDC(hwndBrowser);
     if (!hdcInput)
         return E_FAIL;
 
-    HDC hdcOutput = CreateCompatibleDC(hdcInput);
-    if (!hdcOutput)
-        return E_FAIL;
+	/*
+	spDocument->QueryInterface(IID_IHTMLDocument3, (void**)&doc3);
 
+	IHTMLElement       *htmlElement = (IHTMLElement *) NULL;
+	doc3->get_documentElement(&htmlElement);
+	IHTMLHtmlElement* html = (IHTMLHtmlElement *) htmlElement;
+	*/
+
+	// Nobody else seems to know how to get IViewObject2?!
+	// http://starkravingfinkle.org/blog/2004/09/
+	//spViewObject = spDocument;
+	spDocument->QueryInterface(IID_IViewObject, (void**)&spViewObject);
+	if (spViewObject == NULL)
+		return E_FAIL;
+
+	/*
+	SIZE bitmapSize;
+	bitmapSize.cx = documentWidth.intVal;
+	bitmapSize.cy = documentHeight.intVal;
+
+	HBITMAP hBitmap = CreateCompatibleBitmap(hdcInput, documentWidth.intVal, documentHeight.intVal);
+	assert(false); 
+
+	IWebBrowser2* myBrowser;
+	hr = CoCreateInstance(CLSID_WebBrowser, NULL, CLSCTX_INPROC_SERVER, IID_IWebBrowser2, (void**)&myBrowser);
+	if (FAILED(hr))
+	{
+		PrintError(L"CoCreateInstance");
+	}
+
+	myBrowser->put_Visible(VARIANT_TRUE);
+	*/
+ 
+	/*
+	RECT rc = {0, 0, documentWidth.intVal, documentHeight.intVal};
+	BOOL success = SystemParametersInfo(SPI_SETWORKAREA, 0, &rc, 0);
+	if (success == 0)
+		PrintError(L"SystemParametersInfo");
+
+	MoveWindow(hwndBrowser, 0, 0, documentWidth.intVal, documentHeight.intVal, TRUE);
+	*/
+
+	/*
+	hr = spBrowser->put_Height(documentHeight.intVal);
+	if (FAILED(hr))
+		PrintError(L"put_height");
+
+	spBrowser->put_Width(documentWidth.intVal);
+	*/
+
+	long myHeight, myWidth;
+	spBrowser->get_Height(&myHeight);
+	spBrowser->get_Width(&myWidth);
+
+	/*
+	CLSID clsid;
+	hr = CLSIDFromProgID(L"Shell.ThumbnailExtract.HTML.1", &clsid);
+	if (FAILED(hr))
+	{
+		PrintError(L"CLSID");
+
+		return E_FAIL;
+	}
+
+	IThumbnailCapture* capture;
+	hr = CoCreateInstance(clsid, NULL, CLSCTX_LOCAL_SERVER, IID_IThumbnailCapture, (void**)&capture);
+	if (FAILED(hr))
+	{
+		PrintError(L"CoCreateInstance");
+
+		return E_FAIL;
+	}
+	
+	capture->CaptureThumbnail(&bitmapSize, spDocument, &hBitmap);
+	*/
+
+	/*
+	CImage image;
+	image.Create(documentWidth.intVal, documentHeight.intVal, 24);
+    CImageDC imageDC(image);
+	*/
+
+	BITMAPINFOHEADER bih;
+    BITMAPINFO bi;
+    RGBQUAD rgbquad;
+
+    ZeroMemory(&bih, sizeof(BITMAPINFOHEADER));
+    ZeroMemory(&rgbquad, sizeof(RGBQUAD));
+
+    bih.biSize      = sizeof(BITMAPINFOHEADER);
+	bih.biWidth     = documentWidth.intVal;
+		bih.biHeight    = documentHeight.intVal;
+    bih.biPlanes    = 1;
+    bih.biBitCount      = 32;
+    bih.biClrUsed       = 0;
+    bih.biSizeImage     = 0;
+    bih.biCompression   = BI_RGB;
+    bih.biXPelsPerMeter = 0;
+    bih.biYPelsPerMeter = 0;
+
+    bi.bmiHeader = bih;
+    bi.bmiColors[0] = rgbquad;
+
+    char* bitmapData = NULL;
+    HBITMAP hBitmap = CreateDIBSection(hdcInput, &bi, DIB_RGB_COLORS,
+        (void**)&bitmapData, NULL, 0);
+
+	HDC hdcOutput = CreateCompatibleDC(hdcInput);
+
+	
+/*
+	Graphics graphics(hdcOutput);
+	Region clipRegion(Rect(0, 0, documentWidth.intVal, documentHeight.intVal));
+	graphics.SetClip(&clipRegion);
+
+    if (!hBitmap) {
+        // clean up
+        ReleaseDC(hwndBrowser, hdcInput);
+        DeleteDC(hdcOutput);
+
+        Error("Failed when creating bitmap");
+        return E_FAIL;
+    }
+
+    SelectObject(hdcOutput, hBitmap);
+
+	SolidBrush brush(Color(255, 0, 0));
+	graphics.FillRegion(&brush, &clipRegion);
+	*/
+
+	GdiplusStartupInput gdiplusStartupInput;
+	ULONG_PTR gdiplusToken;
+	GdiplusStartup(&gdiplusToken, &gdiplusStartupInput, NULL);
+
+	Bitmap* bitmap = new Bitmap(documentWidth.intVal, documentHeight.intVal, PixelFormat24bppRGB);
+	Graphics* graphics = Graphics::FromImage(bitmap);
+	HDC myHDC = graphics->GetHDC();
+
+	Color* color = new Color(255, 0, 0, 255);
+	SolidBrush* brush = new SolidBrush(*color);
+	graphics->FillEllipse(brush, 20, 30, 80, 50);
+
+//	Region clipRegion(Rect(0, 0, documentWidth.intVal, documentHeight.intVal));
+//	graphics.SetClip(&clipRegion);
+
+//	SolidBrush brush(Color(255, 0, 255));
+//	graphics.FillRegion(&brush, &clipRegion);
+
+	
+	RECT rcBounds = { 0, 0, documentWidth.intVal, documentHeight.intVal };
+
+	/*
+	hr = spViewObject->Draw(DVASPECT_CONTENT, -1, NULL, NULL,
+                                   hdcInput, hdcOutput, &rcBounds,
+                                   NULL, NULL, 0);
+								   */
+
+	assert(false);
+
+	//MoveWindow(ie, 0, 0, documentWidth.intVal, documentHeight.intVal, TRUE);MoveWindow(ie, 0, 0, documentWidth.intVal, documentHeight.intVal, TRUE);
+
+	RECT windowRect;
+	GetWindowRect(hwndBrowser, &windowRect);
+
+	RECT clientRect;
+	GetClientRect(hwndBrowser, &clientRect);
+
+	int chromeWidth = myWidth - viewportWidth.intVal;
+	int chromeHeight = windowRect.top * 2;
+
+	maxWidth = documentWidth.intVal + chromeWidth;
+	maxHeight = documentHeight.intVal + chromeHeight;
+
+	//spBrowser->put_Visible(VARIANT_FALSE);
+	spBrowser->put_Height(maxHeight);
+	spBrowser->put_Width(maxWidth);
+	//MoveWindow(hwndBrowser, 0, 0, documentWidth.intVal, documentHeight.intVal, TRUE);
+
+	long myNewHeight, myNewWidth;
+	spBrowser->get_Height(&myNewHeight);
+	spBrowser->get_Width(&myNewWidth);
+	
+	//VARIANT nuts;
+	//nuts.boolVal = true;
+	//spScrollableWindow->put_offscreenBuffering(nuts);
+	//spScrollableWindow->resizeTo(documentWidth.intVal, documentHeight.intVal);
+	hr = OleDraw(spViewObject, DVASPECT_DOCPRINT, myHDC, &rcBounds);
+	if (FAILED(hr))
+		PrintError(L"OleDraw");
+
+	graphics->ReleaseHDC(myHDC);
+
+	CLSID pngClsid;
+	GetEncoderClsid(L"image/png", &pngClsid);
+	Status status = bitmap->Save(L"C:\\users\\nirvdrum\\dev\\SnapsIE\\test\\new.png", &pngClsid, NULL);
+	if (status != 0)
+		PrintError(L"Save");
+
+	spBrowser->put_Height(myHeight);
+	spBrowser->put_Width(myWidth);
+	//spBrowser->put_Visible(VARIANT_TRUE);
+
+	delete bitmap;
+	delete graphics;
+	delete color;
+	delete brush;
+
+	GdiplusShutdown(gdiplusToken);
+
+	//SelectObject(hdcMemory, hOld);
+	//DeleteObject(hdcMemory);
+
+	//image.Attach(hBitmap);
+
+	CImage image;
+	image.Attach(hBitmap);
+
+	/*
+	image.Create(documentWidth.intVal, documentHeight.intVal, 24);
+    CImageDC imageDC(image);
+	::BitBlt(imageDC, 0, 0, documentWidth.intVal, documentHeight.intVal, hdcOutput, 0, 0, SRCCOPY);
+	*/
+
+
+	//PrintWindow(hwndBrowser, imageDC, PW_CLIENTONLY);
+
+	/*
+	html->QueryInterface(IID_IHTMLElementRender, (void **) &pRender);
+	pRender->DrawToDC(imageDC);
+	*/
+
+	/*
+	spBrowser->put_Width(width);
+	spBrowser->put_Height(height);
+	*/
+
+
+	if (FAILED(hr))
+	{
+		PrintError(L"Draw");
+
+		//return E_FAIL;
+	}
+
+	 //hr = spViewObject->Draw(DVASPECT_CONTENT, -1, NULL, NULL, hdcInput,
+       //         hdcOutput, &rcBounds, NULL, NULL, 0);
+
+    //CRect captureWndRect;
+    //GetWindowRect(hwndBrowser, &captureWndRect);
+
+	//HBITMAP hBitmap = CreateCompatibleBitmap(hdcOutput, 2000, 2000);
+	//if (!hBitmap)
+	//	return E_FAIL;
+
+	//HDC hdcMemory = CreateCompatibleDC(hdcOutput);
+	//SelectObject(hdcMemory, hBitmap);
+	/*
+	::BitBlt(hdcMemory, 0, 0,
+				documentWidth.intVal,
+				documentHeight.intVal,
+                hdcOutput,
+                0,
+                0,
+                SRCCOPY);*/
+	//PrintWindow(hwndBrowser, hdcOutput, PW_CLIENTONLY);
+
+
+	// save the imag
+
+	image.Save(CW2T(outputFile));
+
+    // clean up
+    ::ReleaseDC(hwndBrowser, hdcInput);
+
+/*
     // initialize bitmap
 
     BITMAPINFOHEADER bih;
@@ -373,6 +759,203 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(
         spScrollableElement->put_scrollLeft(scrollLeft);
         spScrollableElement->put_scrollTop(scrollTop);
     }
+*/
+
+	//Sleep(30000);
+	UnhookWindowsHookEx(nextHook);
 
     return hr;
+}
+
+LRESULT CALLBACK MyProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
+{
+	HANDLE hdl = GetProp(hwnd, L"_old_proc_");
+	RemoveProp(hwnd, L"_old_proc_");
+	SetWindowLongPtr(hwnd, GWL_WNDPROC, (LONG_PTR) (hdl));
+
+	//FILE* fp = fopen("C:\\dev\\workspaces\\SnapsIE\\test\\myproc.txt", "a");
+	//fprintf(fp, "Old handle: 0x%x\n", hdl);
+
+	switch (message)
+	{
+		case WM_GETMINMAXINFO:
+		{
+			MINMAXINFO* minMaxInfo = (MINMAXINFO*) (lParam);
+
+			minMaxInfo->ptMaxSize.x = maxWidth;
+			minMaxInfo->ptMaxSize.y = maxHeight;
+			minMaxInfo->ptMaxTrackSize.x = maxWidth;
+			minMaxInfo->ptMaxTrackSize.y = maxHeight;
+
+			//fprintf(fp, "Got a WM_GETMINMAXINFO\n");
+
+			//fclose(fp);
+
+			break;
+		}
+
+		default:
+		return CallWindowProc(
+			(WNDPROC) (hdl),
+			hwnd,
+			message,
+			wParam,
+			lParam);
+		break;
+
+	}
+}
+
+LRESULT WINAPI CallWndProc(int nCode, WPARAM wParam, LPARAM lParam)
+{
+	DWORD procID = GetCurrentProcessId();
+	int i = 0;
+
+	CWPSTRUCT* cw = (CWPSTRUCT*) lParam;
+	UINT message = cw->message;
+
+	if (message == WM_GETMINMAXINFO)
+	{
+		MINMAXINFO* minMaxInfo = (MINMAXINFO*) cw->lParam;
+
+		//FILE* fp = fopen("C:\\dev\\workspaces\\SnapsIE\\test\\cwndproc.txt", "a");
+		//fprintf(fp, "HWND: 0x%x; Message: 0x%x; nextHook: 0x%x\n", cw->hwnd, cw->message, nextHook);
+		//fprintf(fp, "Max size (%i, %i)\n", minMaxInfo->ptMaxSize.x, minMaxInfo->ptMaxSize.y);
+		//fprintf(fp, "Max track (%i, %i)\n", minMaxInfo->ptMaxTrackSize.x, minMaxInfo->ptMaxTrackSize.y);
+
+		LONG_PTR proc = SetWindowLongPtr(cw->hwnd, GWL_WNDPROC,
+                                         (LONG_PTR)MyProc);
+              SetProp(cw->hwnd,
+                L"_old_proc_",
+                (HANDLE) (proc));
+
+			  //fprintf(fp, "Old proc address: 0x%x\n", proc);
+
+		//fclose(fp);
+	}
+
+	return CallNextHookEx(nextHook, nCode, wParam, lParam);
+}
+
+LRESULT CALLBACK CBTProc(int nCode, WPARAM wParam, LPARAM lParam)
+{
+		char message[1024];
+		sprintf_s(message, "Balls: %d", GetCurrentProcessId());
+        CComBSTR b = message;
+		MessageBox(NULL, b, L"Debug Info", MB_OK | MB_SETFOREGROUND);
+
+	if (nCode < 0)  // do not process message 
+        return CallNextHookEx(nextHook, nCode, wParam, lParam); 
+
+	if (nCode == HCBT_MOVESIZE)
+	{
+		HWND* hwnd = (HWND*)wParam;
+		RECT* rect = (RECT*)lParam;
+
+		char message[1024];
+        sprintf_s(message, "MoveSize for %d", *hwnd);
+        CComBSTR b = message;
+		MessageBox(NULL, b, L"Debug Info", MB_OK | MB_SETFOREGROUND);
+
+		return 1;
+	}
+
+	return 0;
+}
+
+LRESULT CALLBACK GetMsgProc(int nCode, WPARAM wParam, LPARAM lParam) 
+{ 
+	MSG* msg = (MSG*)lParam;
+
+	if (msg->message == WM_GETMINMAXINFO)
+	{
+		//FILE* fp = fopen("C:\\dev\\workspaces\\SnapsIE\\test\\blah.txt", "a");
+		//fprintf(fp, "HWND: 0x%x; Message: 0x%x\n", msg->hwnd, msg->message);
+		//fclose(fp);
+	}
+
+	bool showMessage = false;
+	char message[1024];
+	switch(msg->message)
+	{
+		case WM_SIZE:
+			showMessage = true;
+			sprintf_s(message, "WM_SIZE Proc: %d; HWND: %d; ie: %d", GetCurrentProcessId(), msg->hwnd, ie);
+			break;
+
+		case WM_WINDOWPOSCHANGED:
+			showMessage = true;
+			sprintf_s(message, "WM_WINDOWPOSCHANGED Proc: %d; HWND: %d; ie: %d", GetCurrentProcessId(), msg->hwnd, ie);
+			break;
+
+		case WM_MOVE:
+			showMessage = true;
+			sprintf_s(message, "WM_MOVE Proc: %d; HWND: %d; ie: %d", GetCurrentProcessId(), msg->hwnd, ie);
+			break;
+
+		case WM_GETMINMAXINFO:
+			showMessage = true;
+			sprintf_s(message, "WM_GETMINMAXINFO Proc: %d; HWND: %d; ie: %d", GetCurrentProcessId(), msg->hwnd, ie);
+			break;
+
+		case WM_WINDOWPOSCHANGING:
+			showMessage = true;
+			sprintf_s(message, "WM_WINDOWPOSCHANGING Proc: %d; HWND: %d; ie: %d", GetCurrentProcessId(), msg->hwnd, ie);
+			break;
+
+		case WM_NCCALCSIZE:
+			showMessage = true;
+			sprintf_s(message, "WM_NCCALCSIZE Proc: %d; HWND: %d; ie: %d", GetCurrentProcessId(), msg->hwnd, ie);
+			break;
+
+		case WM_SIZING:
+			showMessage = true;
+			sprintf_s(message, "WM_SIZING Proc: %d; HWND: %d; ie: %d", GetCurrentProcessId(), msg->hwnd, ie);
+			break;
+
+		case WM_MOVING:
+			showMessage = true;
+			sprintf_s(message, "WM_MOVING Proc: %d; HWND: %d; ie: %d", GetCurrentProcessId(), msg->hwnd, ie);
+			break;
+	}
+
+	/*
+	if (showMessage == true)
+	{
+		CComBSTR b = message;
+		MessageBox(NULL, b, L"Debug Info", MB_OK | MB_SETFOREGROUND);
+	}
+	*/
+
+	return CallNextHookEx(nextHook, nCode, wParam, lParam);
+}
+
+LRESULT WINAPI CallWndRetProc(int nCode, WPARAM wParam, LPARAM lParam)
+{
+	CWPRETSTRUCT* fun = (CWPRETSTRUCT*) lParam;
+	UINT message = fun->message;
+
+	//FILE* fp = fopen("C:\\dev\\workspaces\\SnapsIE\\test\\yo.txt", "a");
+	//	fprintf(fp, "HWND: 0x%x; Message: 0x%x\n", fun->hwnd, fun->message);
+	//	fclose(fp);
+
+	if (message == WM_GETMINMAXINFO)
+	{
+		MINMAXINFO* minMaxInfo = (MINMAXINFO*) fun->lParam;
+
+		/*
+		FILE* fp = fopen("C:\\dev\\workspaces\\SnapsIE\\test\\ret.txt", "a");
+		fprintf(fp, "HWND: 0x%x; Message: 0x%x; nextHook: 0x%x\n", fun->hwnd, fun->message, nextHook);
+		fprintf(fp, "Max size (%i, %i)\n", minMaxInfo->ptMaxSize.x, minMaxInfo->ptMaxSize.y);
+		fprintf(fp, "Max track (%i, %i)\n", minMaxInfo->ptMaxTrackSize.x, minMaxInfo->ptMaxTrackSize.y);
+		fclose(fp);
+		*/
+
+		minMaxInfo->ptMaxSize.x = 10000;
+		minMaxInfo->ptMaxSize.y = 10000;
+		minMaxInfo->ptMaxTrackSize.x = 10000;
+		minMaxInfo->ptMaxTrackSize.y = 10000;
+	}
+
+	return CallNextHookEx(nextHook, nCode, wParam, lParam);
 }

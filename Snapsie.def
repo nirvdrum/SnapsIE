@@ -7,3 +7,7 @@ EXPORTS
 	DllGetClassObject	PRIVATE
 	DllRegisterServer	PRIVATE
 	DllUnregisterServer	PRIVATE
+	CBTProc				PRIVATE
+	CallWndProc			PRIVATE
+	GetMsgProc			PRIVATE
+	CallWndRetProc		PRIVATE
