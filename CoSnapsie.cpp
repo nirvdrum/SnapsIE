@@ -329,49 +329,14 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(
 	if (hkprcSysMsg == NULL)
 		PrintError(L"GetProcAddress");
 
-	//nextHook = SetWindowsHookEx(WH_CALLWNDPROC, CallWndProc, NULL, GetCurrentThreadId());
 	nextHook = SetWindowsHookEx(WH_CALLWNDPROC, hkprcSysMsg, hinstDLL, 0);
-	//nextHook = SetWindowsHookEx(WH_CALLWNDPROCRET, hkprcSysMsg, hinstDLL, 0);
-	//nextHook = SetWindowsHookEx(WH_CBT, CBTProc, NULL, GetCurrentThreadId());
-	//nextHook = SetWindowsHookEx(WH_CBT, hkprcSysMsg, hinstDLL, 0);
-	//nextHook = SetWindowsHookEx(WH_GETMESSAGE, hkprcSysMsg, hinstDLL, 0);
 	if (nextHook == 0)
 		PrintError(L"SetWindowsHookEx");
-
-	/*
-	originalProc = (WNDPROC) SetWindowLongPtr(ie, GWLP_WNDPROC, (LONG) MyProc);
-	if (originalProc == 0)
-		PrintError(L"GetWindowLongPtr");
-	*/
-
-	//::MoveWindow(ie, 0, 0, documentWidth.intVal, documentHeight.intVal, TRUE);
-
-	/*
-	hr = spBrowser->put_Height(documentHeight.intVal);
-	if (FAILED(hr))
-	{
-		PrintError(L"PutHeight");
-	}
-	spBrowser->put_Width(documentWidth.intVal * 100);
-	*/
-
-	long newWidth, newHeight;
-	spBrowser->get_Width(&newWidth);
-	spBrowser->get_Height(&newHeight);
-
 
 	// create the HDC objects
     HDC hdcInput = ::GetDC(hwndBrowser);
     if (!hdcInput)
         return E_FAIL;
-
-	/*
-	spDocument->QueryInterface(IID_IHTMLDocument3, (void**)&doc3);
-
-	IHTMLElement       *htmlElement = (IHTMLElement *) NULL;
-	doc3->get_documentElement(&htmlElement);
-	IHTMLHtmlElement* html = (IHTMLHtmlElement *) htmlElement;
-	*/
 
 	// Nobody else seems to know how to get IViewObject2?!
 	// http://starkravingfinkle.org/blog/2004/09/
@@ -398,48 +363,10 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(
 	myBrowser->put_Visible(VARIANT_TRUE);
 	*/
  
-	/*
-	RECT rc = {0, 0, documentWidth.intVal, documentHeight.intVal};
-	BOOL success = SystemParametersInfo(SPI_SETWORKAREA, 0, &rc, 0);
-	if (success == 0)
-		PrintError(L"SystemParametersInfo");
-
-	MoveWindow(hwndBrowser, 0, 0, documentWidth.intVal, documentHeight.intVal, TRUE);
-	*/
-
-	/*
-	hr = spBrowser->put_Height(documentHeight.intVal);
-	if (FAILED(hr))
-		PrintError(L"put_height");
-
-	spBrowser->put_Width(documentWidth.intVal);
-	*/
 
 	long myHeight, myWidth;
 	spBrowser->get_Height(&myHeight);
 	spBrowser->get_Width(&myWidth);
-
-	/*
-	CLSID clsid;
-	hr = CLSIDFromProgID(L"Shell.ThumbnailExtract.HTML.1", &clsid);
-	if (FAILED(hr))
-	{
-		PrintError(L"CLSID");
-
-		return E_FAIL;
-	}
-
-	IThumbnailCapture* capture;
-	hr = CoCreateInstance(clsid, NULL, CLSCTX_LOCAL_SERVER, IID_IThumbnailCapture, (void**)&capture);
-	if (FAILED(hr))
-	{
-		PrintError(L"CoCreateInstance");
-
-		return E_FAIL;
-	}
-	
-	capture->CaptureThumbnail(&bitmapSize, spDocument, &hBitmap);
-	*/
 
 	/*
 	CImage image;
@@ -502,17 +429,6 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(
 	Bitmap* bitmap = new Bitmap(documentWidth.intVal, documentHeight.intVal, PixelFormat24bppRGB);
 	Graphics* graphics = Graphics::FromImage(bitmap);
 	HDC myHDC = graphics->GetHDC();
-
-	Color* color = new Color(255, 0, 0, 255);
-	SolidBrush* brush = new SolidBrush(*color);
-	graphics->FillEllipse(brush, 20, 30, 80, 50);
-
-//	Region clipRegion(Rect(0, 0, documentWidth.intVal, documentHeight.intVal));
-//	graphics.SetClip(&clipRegion);
-
-//	SolidBrush brush(Color(255, 0, 255));
-//	graphics.FillRegion(&brush, &clipRegion);
-
 	
 	RECT rcBounds = { 0, 0, documentWidth.intVal, documentHeight.intVal };
 
@@ -521,10 +437,6 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(
                                    hdcInput, hdcOutput, &rcBounds,
                                    NULL, NULL, 0);
 								   */
-
-	assert(false);
-
-	//MoveWindow(ie, 0, 0, documentWidth.intVal, documentHeight.intVal, TRUE);MoveWindow(ie, 0, 0, documentWidth.intVal, documentHeight.intVal, TRUE);
 
 	RECT windowRect;
 	GetWindowRect(hwndBrowser, &windowRect);
@@ -538,7 +450,6 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(
 	maxWidth = documentWidth.intVal + chromeWidth;
 	maxHeight = documentHeight.intVal + chromeHeight;
 
-	//spBrowser->put_Visible(VARIANT_FALSE);
 	spBrowser->put_Height(maxHeight);
 	spBrowser->put_Width(maxWidth);
 	//MoveWindow(hwndBrowser, 0, 0, documentWidth.intVal, documentHeight.intVal, TRUE);
@@ -547,10 +458,6 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(
 	spBrowser->get_Height(&myNewHeight);
 	spBrowser->get_Width(&myNewWidth);
 	
-	//VARIANT nuts;
-	//nuts.boolVal = true;
-	//spScrollableWindow->put_offscreenBuffering(nuts);
-	//spScrollableWindow->resizeTo(documentWidth.intVal, documentHeight.intVal);
 	hr = OleDraw(spViewObject, DVASPECT_DOCPRINT, myHDC, &rcBounds);
 	if (FAILED(hr))
 		PrintError(L"OleDraw");
