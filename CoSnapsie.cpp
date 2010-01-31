@@ -281,19 +281,6 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(
     spBrowser->get_Width(&width);
     spBrowser->get_Height(&height);
 
-    //assert (false);
-
-    int fullScreenY = GetSystemMetrics(SM_CYFULLSCREEN);
-    int maximizedY = GetSystemMetrics(SM_CYMAXIMIZED);
-
-    HWND yo;
-    spBrowser->get_HWND((SHANDLE_PTR*)&yo);
-
-    DWORD parentID, thisID, currentID;
-    GetWindowThreadProcessId(yo, &parentID);
-    GetWindowThreadProcessId(hwndBrowser, &thisID);
-    currentID = GetCurrentProcessId();
-
     TCHAR dllPath[_MAX_PATH];
     GetModuleFileName((HINSTANCE) &__ImageBase, dllPath, _MAX_PATH);
 
@@ -317,24 +304,6 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(
     spDocument->QueryInterface(IID_IViewObject, (void**)&spViewObject);
     if (spViewObject == NULL)
         return E_FAIL;
-
-    /*
-    SIZE bitmapSize;
-    bitmapSize.cx = documentWidth.intVal;
-    bitmapSize.cy = documentHeight.intVal;
-
-    HBITMAP hBitmap = CreateCompatibleBitmap(hdcInput, documentWidth.intVal, documentHeight.intVal);
-    assert(false); 
-
-    IWebBrowser2* myBrowser;
-    hr = CoCreateInstance(CLSID_WebBrowser, NULL, CLSCTX_INPROC_SERVER, IID_IWebBrowser2, (void**)&myBrowser);
-    if (FAILED(hr))
-    {
-        PrintError(L"CoCreateInstance");
-    }
-
-    myBrowser->put_Visible(VARIANT_TRUE);
-    */
  
 
     long myHeight, myWidth;
@@ -374,26 +343,6 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(
 
     HDC hdcOutput = CreateCompatibleDC(hdcInput);
 
-    
-/*
-    Graphics graphics(hdcOutput);
-    Region clipRegion(Rect(0, 0, documentWidth.intVal, documentHeight.intVal));
-    graphics.SetClip(&clipRegion);
-
-    if (!hBitmap) {
-        // clean up
-        ReleaseDC(hwndBrowser, hdcInput);
-        DeleteDC(hdcOutput);
-
-        Error("Failed when creating bitmap");
-        return E_FAIL;
-    }
-
-    SelectObject(hdcOutput, hBitmap);
-
-    SolidBrush brush(Color(255, 0, 0));
-    graphics.FillRegion(&brush, &clipRegion);
-    */
 
     GdiplusStartupInput gdiplusStartupInput;
     ULONG_PTR gdiplusToken;
@@ -425,11 +374,6 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(
 
     spBrowser->put_Height(maxHeight);
     spBrowser->put_Width(maxWidth);
-    //MoveWindow(hwndBrowser, 0, 0, documentWidth.intVal, documentHeight.intVal, TRUE);
-
-    long myNewHeight, myNewWidth;
-    spBrowser->get_Height(&myNewHeight);
-    spBrowser->get_Width(&myNewWidth);
     
     hr = OleDraw(spViewObject, DVASPECT_DOCPRINT, myHDC, &rcBounds);
     if (FAILED(hr))
@@ -445,7 +389,6 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(
 
     spBrowser->put_Height(myHeight);
     spBrowser->put_Width(myWidth);
-    //spBrowser->put_Visible(VARIANT_TRUE);
 
     delete bitmap;
     delete graphics;
@@ -468,24 +411,6 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(
 
 
     //PrintWindow(hwndBrowser, imageDC, PW_CLIENTONLY);
-
-    /*
-    html->QueryInterface(IID_IHTMLElementRender, (void **) &pRender);
-    pRender->DrawToDC(imageDC);
-    */
-
-    /*
-    spBrowser->put_Width(width);
-    spBrowser->put_Height(height);
-    */
-
-
-    if (FAILED(hr))
-    {
-        PrintError(L"Draw");
-
-        //return E_FAIL;
-    }
 
      //hr = spViewObject->Draw(DVASPECT_CONTENT, -1, NULL, NULL, hdcInput,
        //         hdcOutput, &rcBounds, NULL, NULL, 0);
