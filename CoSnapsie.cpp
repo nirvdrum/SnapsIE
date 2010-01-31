@@ -281,18 +281,6 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(
     spBrowser->get_Width(&width);
     spBrowser->get_Height(&height);
 
-    TCHAR dllPath[_MAX_PATH];
-    GetModuleFileName((HINSTANCE) &__ImageBase, dllPath, _MAX_PATH);
-
-    HINSTANCE hinstDLL = LoadLibrary(dllPath);
-    HOOKPROC hkprcSysMsg = (HOOKPROC)GetProcAddress(hinstDLL, "CallWndProc");
-    if (hkprcSysMsg == NULL)
-        PrintError(L"GetProcAddress");
-
-    nextHook = SetWindowsHookEx(WH_CALLWNDPROC, hkprcSysMsg, hinstDLL, 0);
-    if (nextHook == 0)
-        PrintError(L"SetWindowsHookEx");
-
     // create the HDC objects
     HDC hdcInput = ::GetDC(hwndBrowser);
     if (!hdcInput)
@@ -344,6 +332,21 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(
     HDC hdcOutput = CreateCompatibleDC(hdcInput);
 
 
+	// Get the path to this DLL so we can load it up with LoadLibrary.
+    TCHAR dllPath[_MAX_PATH];
+    GetModuleFileName((HINSTANCE) &__ImageBase, dllPath, _MAX_PATH);
+
+	// Get the path to the Windows hook we use to allow resizing the window greater than the virtual screen resolution.
+    HINSTANCE hinstDLL = LoadLibrary(dllPath);
+    HOOKPROC hkprcSysMsg = (HOOKPROC)GetProcAddress(hinstDLL, "CallWndProc");
+    if (hkprcSysMsg == NULL)
+        PrintError(L"GetProcAddress");
+
+	// Install the Windows hook.
+    nextHook = SetWindowsHookEx(WH_CALLWNDPROC, hkprcSysMsg, hinstDLL, 0);
+    if (nextHook == 0)
+        PrintError(L"SetWindowsHookEx");
+
     GdiplusStartupInput gdiplusStartupInput;
     ULONG_PTR gdiplusToken;
     GdiplusStartup(&gdiplusToken, &gdiplusStartupInput, NULL);
@@ -380,6 +383,8 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(
         PrintError(L"OleDraw");
 
     graphics->ReleaseHDC(myHDC);
+
+	UnhookWindowsHookEx(nextHook);
 
     CLSID pngClsid;
     GetEncoderClsid(L"image/png", &pngClsid);
@@ -440,8 +445,6 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(
 
     // clean up
     ::ReleaseDC(hwndBrowser, hdcInput);
-
-    UnhookWindowsHookEx(nextHook);
 
     return hr;
 }
