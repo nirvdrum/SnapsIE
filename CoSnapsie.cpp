@@ -16,7 +16,7 @@ LRESULT CALLBACK MyProc(HWND, UINT, WPARAM, LPARAM);
 
 WNDPROC originalProc;
 
-// define a data segment
+// Define a shared data segment.  Variables in this segment can be shared across processes that load this DLL.
 #pragma data_seg("SHARED")
 HHOOK nextHook = NULL;
 HWND ie = NULL;
@@ -26,11 +26,12 @@ int maxHeight = 0;
 
 #pragma comment(linker, "/section:SHARED,RWS")
 
-// VisualStudio helper for getting the DLL's filename.
+// Microsoft linker helper for getting the DLL's HINSTANCE.
+// See http://blogs.msdn.com/oldnewthing/archive/2004/10/25/247180.aspx for more details.
+//
+// If you need to link with a non-MS linker, you would have to add code to look up the DLL's
+// path in HKCR.  regsvr32 stores the path under the CLSID key for the 'Snapsie.CoSnapsie' interface.
 EXTERN_C IMAGE_DOS_HEADER __ImageBase;
-
-
-// CCoSnapsie
 
 using namespace Gdiplus;
 
@@ -320,7 +321,7 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(
 	GetWindowThreadProcessId(hwndBrowser, &thisID);
 	currentID = GetCurrentProcessId();
 
-	LPTSTR dllPath = new TCHAR[_MAX_PATH];
+	TCHAR dllPath[_MAX_PATH];
 	GetModuleFileName((HINSTANCE) &__ImageBase, dllPath, _MAX_PATH);
 
 	HINSTANCE hinstDLL = LoadLibrary(dllPath);
@@ -643,6 +644,34 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(
     return hr;
 }
 
+// Many thanks to sunnyandy for helping out with this approach.  What we're doing here is setting up
+// a Windows hook to see incoming messages to the IEFrame's message processor.  Once we find one that's
+// WM_GETMINMAXINFO, we inject our own message processor into the IEFrame process to handle that one
+// message.  WM_GETMINMAXINFO is sent on a resize event so the process can see how large a window can be.
+// By modifying the max values, we can allow a window to be sized greater than the (virtual) screen resolution
+// would otherwise allow.
+//
+// See the discussion here: http://www.codeguru.com/forum/showthread.php?p=1889928
+
+LRESULT WINAPI CallWndProc(int nCode, WPARAM wParam, LPARAM lParam)
+{
+	DWORD procID = GetCurrentProcessId();
+	int i = 0;
+
+	CWPSTRUCT* cw = (CWPSTRUCT*) lParam;
+	UINT message = cw->message;
+
+	if (message == WM_GETMINMAXINFO)
+	{
+		MINMAXINFO* minMaxInfo = (MINMAXINFO*) cw->lParam;
+
+		LONG_PTR proc = SetWindowLongPtr(cw->hwnd, GWL_WNDPROC, (LONG_PTR) MyProc);
+        SetProp(cw->hwnd, L"_old_proc_", (HANDLE) proc);
+	}
+
+	return CallNextHookEx(nextHook, nCode, wParam, lParam);
+}
+
 LRESULT CALLBACK MyProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
 	HANDLE hdl = GetProp(hwnd, L"_old_proc_");
@@ -669,35 +698,3 @@ LRESULT CALLBACK MyProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 		}
 	}
 }
-
-LRESULT WINAPI CallWndProc(int nCode, WPARAM wParam, LPARAM lParam)
-{
-	DWORD procID = GetCurrentProcessId();
-	int i = 0;
-
-	CWPSTRUCT* cw = (CWPSTRUCT*) lParam;
-	UINT message = cw->message;
-
-	if (message == WM_GETMINMAXINFO)
-	{
-		MINMAXINFO* minMaxInfo = (MINMAXINFO*) cw->lParam;
-
-		//FILE* fp = fopen("C:\\dev\\workspaces\\SnapsIE\\test\\cwndproc.txt", "a");
-		//fprintf(fp, "HWND: 0x%x; Message: 0x%x; nextHook: 0x%x\n", cw->hwnd, cw->message, nextHook);
-		//fprintf(fp, "Max size (%i, %i)\n", minMaxInfo->ptMaxSize.x, minMaxInfo->ptMaxSize.y);
-		//fprintf(fp, "Max track (%i, %i)\n", minMaxInfo->ptMaxTrackSize.x, minMaxInfo->ptMaxTrackSize.y);
-
-		LONG_PTR proc = SetWindowLongPtr(cw->hwnd, GWL_WNDPROC,
-                                         (LONG_PTR)MyProc);
-              SetProp(cw->hwnd,
-                L"_old_proc_",
-                (HANDLE) (proc));
-
-			  //fprintf(fp, "Old proc address: 0x%x\n", proc);
-
-		//fclose(fp);
-	}
-
-	return CallNextHookEx(nextHook, nCode, wParam, lParam);
-}
-
