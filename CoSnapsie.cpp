@@ -231,8 +231,6 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(
     if (nextHook == 0)
         PrintError(L"SetWindowsHookEx");
 
-	FILE* fp = fopen("C:\\users\\nirvdrum\\dev\\Snapsie\\test\\dimensions.txt", "w");
-
 	CComQIPtr<IHTMLDocument5> spDocument5;
 	spDocument->QueryInterface(IID_IHTMLDocument5, (void**)&spDocument5);
 	if (spDocument5 == NULL)
@@ -295,7 +293,7 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(
 	}
 
 
-
+	FILE* fp = fopen("C:\\users\\nirvdrum\\dev\\Snapsie\\test\\dimensions.txt", "w");
 
 	// Figure out how large to make the window.  It's no sufficient to just use the dimensions of the scrolled
 	// viewport because the browser chrome occupies space that must be accounted for as well.
@@ -326,12 +324,9 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(
 
 	fprintf(fp, "Document width: %i, height: %i\n", documentWidth.intVal, documentHeight.intVal);
 	fprintf(fp, "Viewport width: %i, height: %i\n\n", viewportWidth.intVal, viewportHeight.intVal);
-	fprintf(fp, "Drawable scroll width: %i, height: %i\n", drawableScrollWidth, drawableScrollHeight);
-	fprintf(fp, "Drawable client width: %i, height: %i\n\n", drawableClientWidth, drawableClientHeight);
 
-
-    int chromeWidth = ieWindowWidth - tabClientWidth;
-    int chromeHeight = ieWindowHeight - tabClientHeight;
+	int chromeWidth = ieWindowWidth - viewportWidth.intVal;
+	int chromeHeight = ieWindowHeight - tabClientHeight;
 
     maxWidth = documentWidth.intVal + chromeWidth;
     maxHeight = documentHeight.intVal + chromeHeight;
