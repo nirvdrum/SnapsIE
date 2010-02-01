@@ -7,10 +7,6 @@
 #include <assert.h>
 #include <windows.h>
 #include <shlguid.h>
-#include <shlguid.h>
-#include <shlobj.h>
-#include <exdisp.h>
-#include <gdiplus.h>
 
 LRESULT CALLBACK MyProc(HWND, UINT, WPARAM, LPARAM);
 
@@ -32,39 +28,6 @@ int maxHeight = 0;
 // If you need to link with a non-MS linker, you would have to add code to look up the DLL's
 // path in HKCR.  regsvr32 stores the path under the CLSID key for the 'Snapsie.CoSnapsie' interface.
 EXTERN_C IMAGE_DOS_HEADER __ImageBase;
-
-using namespace Gdiplus;
-
-int GetEncoderClsid(const WCHAR* format, CLSID* pClsid)
-{
-   UINT  num = 0;          // number of image encoders
-   UINT  size = 0;         // size of the image encoder array in bytes
-
-   ImageCodecInfo* pImageCodecInfo = NULL;
-
-   GetImageEncodersSize(&num, &size);
-   if(size == 0)
-      return -1;  // Failure
-
-   pImageCodecInfo = (ImageCodecInfo*)(malloc(size));
-   if(pImageCodecInfo == NULL)
-      return -1;  // Failure
-
-   GetImageEncoders(num, size, pImageCodecInfo);
-
-   for(UINT j = 0; j < num; ++j)
-   {
-      if( wcscmp(pImageCodecInfo[j].MimeType, format) == 0 )
-      {
-         *pClsid = pImageCodecInfo[j].Clsid;
-         free(pImageCodecInfo);
-         return j;  // Success
-      }    
-   }
-
-   free(pImageCodecInfo);
-   return -1;  // Failure
-}
 
 STDMETHODIMP CCoSnapsie::InterfaceSupportsErrorInfo(REFIID riid)
 {
@@ -291,12 +254,6 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(
         return E_FAIL;
  
 
-    /*
-    CImage image;
-    image.Create(documentWidth.intVal, documentHeight.intVal, 24);
-    CImageDC imageDC(image);
-    */
-
     BITMAPINFOHEADER bih;
     BITMAPINFO bi;
     RGBQUAD rgbquad;
@@ -344,21 +301,13 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(
     if (nextHook == 0)
         PrintError(L"SetWindowsHookEx");
 
-    GdiplusStartupInput gdiplusStartupInput;
-    ULONG_PTR gdiplusToken;
-    GdiplusStartup(&gdiplusToken, &gdiplusStartupInput, NULL);
 
-    Bitmap* bitmap = new Bitmap(documentWidth.intVal, documentHeight.intVal, PixelFormat24bppRGB);
-    Graphics* graphics = Graphics::FromImage(bitmap);
-    HDC myHDC = graphics->GetHDC();
+
+	CImage image;
+    image.Create(documentWidth.intVal, documentHeight.intVal, 24);
+    CImageDC imageDC(image);
     
     RECT rcBounds = { 0, 0, documentWidth.intVal, documentHeight.intVal };
-
-    /*
-    hr = spViewObject->Draw(DVASPECT_CONTENT, -1, NULL, NULL,
-                                   hdcInput, hdcOutput, &rcBounds,
-                                   NULL, NULL, 0);
-                                   */
 
     RECT windowRect;
     GetWindowRect(hwndBrowser, &windowRect);
@@ -375,66 +324,21 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(
     spBrowser->put_Height(maxHeight);
     spBrowser->put_Width(maxWidth);
     
-    hr = OleDraw(spViewObject, DVASPECT_DOCPRINT, myHDC, &rcBounds);
+	hr = PrintWindow(hwndBrowser, imageDC, PW_CLIENTONLY);
+    // hr = OleDraw(spViewObject, DVASPECT_DOCPRINT, myHDC, &rcBounds);
+    /*
+    hr = spViewObject->Draw(DVASPECT_CONTENT, -1, NULL, NULL,
+                                   hdcInput, hdcOutput, &rcBounds,
+                                   NULL, NULL, 0);
+                                   */
+
+
     if (FAILED(hr))
         PrintError(L"OleDraw");
-
-    graphics->ReleaseHDC(myHDC);
-
 	UnhookWindowsHookEx(nextHook);
-
-    CLSID pngClsid;
-    GetEncoderClsid(L"image/png", &pngClsid);
-    Status status = bitmap->Save(L"C:\\users\\nirvdrum\\dev\\SnapsIE\\test\\new.png", &pngClsid, NULL);
-    if (status != 0)
-        PrintError(L"Save");
 
     spBrowser->put_Height(originalHeight);
     spBrowser->put_Width(originalWidth);
-
-    delete bitmap;
-    delete graphics;
-
-    GdiplusShutdown(gdiplusToken);
-        
-    //SelectObject(hdcMemory, hOld);
-    //DeleteObject(hdcMemory);
-
-    //image.Attach(hBitmap);
-
-    CImage image;
-    image.Attach(hBitmap);
-
-    /*
-    image.Create(documentWidth.intVal, documentHeight.intVal, 24);
-    CImageDC imageDC(image);
-    ::BitBlt(imageDC, 0, 0, documentWidth.intVal, documentHeight.intVal, hdcOutput, 0, 0, SRCCOPY);
-    */
-
-
-    //PrintWindow(hwndBrowser, imageDC, PW_CLIENTONLY);
-
-     //hr = spViewObject->Draw(DVASPECT_CONTENT, -1, NULL, NULL, hdcInput,
-       //         hdcOutput, &rcBounds, NULL, NULL, 0);
-
-    //CRect captureWndRect;
-    //GetWindowRect(hwndBrowser, &captureWndRect);
-
-    //HBITMAP hBitmap = CreateCompatibleBitmap(hdcOutput, 2000, 2000);
-    //if (!hBitmap)
-    //	return E_FAIL;
-
-    //HDC hdcMemory = CreateCompatibleDC(hdcOutput);
-    //SelectObject(hdcMemory, hBitmap);
-    /*
-    ::BitBlt(hdcMemory, 0, 0,
-                documentWidth.intVal,
-                documentHeight.intVal,
-                hdcOutput,
-                0,
-                0,
-                SRCCOPY);*/
-    //PrintWindow(hwndBrowser, hdcOutput, PW_CLIENTONLY);
 
 
     // save the imag
