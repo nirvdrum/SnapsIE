@@ -65,8 +65,6 @@ public:
         LONG drawableClientTop,
         LONG frameBCRLeft,
         LONG frameBCRTop);
-
-    LRESULT WINAPI CallWndProc(int, WPARAM, LPARAM);
 };
 
 OBJECT_ENTRY_AUTO(__uuidof(CoSnapsie), CCoSnapsie)
