@@ -321,18 +321,14 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(
 // See the discussion here: http://www.codeguru.com/forum/showthread.php?p=1889928
 LRESULT WINAPI CallWndProc(int nCode, WPARAM wParam, LPARAM lParam)
 {
-    DWORD procID = GetCurrentProcessId();
-    int i = 0;
+    CWPSTRUCT* cwp = (CWPSTRUCT*) lParam;
 
-    CWPSTRUCT* cw = (CWPSTRUCT*) lParam;
-    UINT message = cw->message;
-
-    if (message == WM_GETMINMAXINFO)
+    if (WM_GETMINMAXINFO == cwp->message)
 	{
 		// Inject our own message processor into the process so we can modify the WM_GETMINMAXINFO message.
 		// It is not possible to modify the message from this hook, so the best we can do is inject a function that can.
-        LONG_PTR proc = SetWindowLongPtr(cw->hwnd, GWL_WNDPROC, (LONG_PTR) MinMaxInfoHandler);
-        SetProp(cw->hwnd, L"__original_message_processor__", (HANDLE) proc);
+        LONG_PTR proc = SetWindowLongPtr(cwp->hwnd, GWL_WNDPROC, (LONG_PTR) MinMaxInfoHandler);
+        SetProp(cwp->hwnd, L"__original_message_processor__", (HANDLE) proc);
     }
 
     return CallNextHookEx(nextHook, nCode, wParam, lParam);
@@ -351,24 +347,18 @@ LRESULT CALLBACK MinMaxInfoHandler(HWND hwnd, UINT message, WPARAM wParam, LPARA
 	// Uninject this method.
     SetWindowLongPtr(hwnd, GWL_WNDPROC, (LONG_PTR) originalMessageProc);
 
-    switch (message)
-    {
-        case WM_GETMINMAXINFO:
-        {
-            MINMAXINFO* minMaxInfo = (MINMAXINFO*) (lParam);
+	if (WM_GETMINMAXINFO == message)
+	{
+		MINMAXINFO* minMaxInfo = (MINMAXINFO*) (lParam);
 
-            minMaxInfo->ptMaxTrackSize.x = maxWidth;
-            minMaxInfo->ptMaxTrackSize.y = maxHeight;
+        minMaxInfo->ptMaxTrackSize.x = maxWidth;
+        minMaxInfo->ptMaxTrackSize.y = maxHeight;
 
-			// We're not going to pass this message onto the original message processor, so we should
-			// return 0, per the documentation for the WM_GETMINMAXINFO message.
-            return 0;
-        }
+		// We're not going to pass this message onto the original message processor, so we should
+		// return 0, per the documentation for the WM_GETMINMAXINFO message.
+        return 0;
+	}
 
-        default:
-        {
-			// All other messages should be handled by the original message processor.
-            return CallWindowProc((WNDPROC) originalMessageProc, hwnd, message,	wParam,	lParam);
-        }
-    }
+    // All other messages should be handled by the original message processor.
+    return CallWindowProc((WNDPROC) originalMessageProc, hwnd, message, wParam, lParam);
 }
