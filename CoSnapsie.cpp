@@ -268,14 +268,9 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(
         PrintError(L"SetWindowsHookEx");
 
 
-
-	CImage image;
-    image.Create(documentWidth.intVal, documentHeight.intVal, 24);
-    CImageDC imageDC(image);
-    
-    RECT rcBounds = { 0, 0, documentWidth.intVal, documentHeight.intVal };
-
-    RECT windowRect;
+	// Figure out how large to make the window.  It's no sufficient to just use the dimensions of the scrolled
+	// viewport because the browser chrome occupies space that must be accounted for as well.
+	RECT windowRect;
     GetWindowRect(hwndBrowser, &windowRect);
 
     RECT clientRect;
@@ -289,9 +284,17 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(
 
     spBrowser->put_Height(maxHeight);
     spBrowser->put_Width(maxWidth);
+
+
+	// Capture the window's canvas to a DIB.
+	CImage image;
+	image.Create(documentWidth.intVal, documentHeight.intVal, 24);
+    CImageDC imageDC(image);
+    
+    RECT rcBounds = { 0, 0, documentWidth.intVal, documentHeight.intVal };
     
 	hr = PrintWindow(hwndBrowser, imageDC, PW_CLIENTONLY);
-    // hr = OleDraw(spViewObject, DVASPECT_DOCPRINT, myHDC, &rcBounds);
+    //hr = OleDraw(spViewObject, DVASPECT_DOCPRINT, imageDC, &rcBounds);
 
     if (FAILED(hr))
         PrintError(L"OleDraw");
@@ -302,7 +305,7 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(
     spBrowser->put_Width(originalWidth);
 
 
-    // save the imag
+    // save the image.
     image.Save(CW2T(outputFile));
 
     return hr;
