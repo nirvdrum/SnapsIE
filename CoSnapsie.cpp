@@ -211,26 +211,6 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(
     if (spViewObject == NULL)
         return E_FAIL;
 
-
-    long originalHeight, originalWidth;
-    spBrowser->get_Height(&originalHeight);
-    spBrowser->get_Width(&originalWidth);
-
-    // Get the path to this DLL so we can load it up with LoadLibrary.
-    TCHAR dllPath[_MAX_PATH];
-    GetModuleFileName((HINSTANCE) &__ImageBase, dllPath, _MAX_PATH);
-
-    // Get the path to the Windows hook we use to allow resizing the window greater than the virtual screen resolution.
-    HINSTANCE hinstDLL = LoadLibrary(dllPath);
-    HOOKPROC hkprcSysMsg = (HOOKPROC)GetProcAddress(hinstDLL, "CallWndProc");
-    if (hkprcSysMsg == NULL)
-        PrintError(L"GetProcAddress");
-
-    // Install the Windows hook.
-    nextHook = SetWindowsHookEx(WH_CALLWNDPROC, hkprcSysMsg, hinstDLL, 0);
-    if (nextHook == 0)
-        PrintError(L"SetWindowsHookEx");
-
     CComQIPtr<IHTMLDocument5> spDocument5;
     spDocument->QueryInterface(IID_IHTMLDocument5, (void**)&spDocument5);
     if (spDocument5 == NULL)
@@ -334,6 +314,37 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(
     fprintf(fp, "Max width: %i, height: %i\n", maxWidth, maxHeight);
     fclose(fp);
 
+
+    long originalHeight, originalWidth;
+    spBrowser->get_Height(&originalHeight);
+    spBrowser->get_Width(&originalWidth);
+
+
+    // The resize message is being ignored if the window appears to be maximized.  There's likely a
+    // way to bypass that.  My ghetto way is to unmaximize the window, then move on with setting
+    // the window to the dimensions we really want.  This is okay because we revert back to the
+    // original dimensions afterward.
+    BOOL isMaximized = IsZoomed(ie);
+    if (isMaximized)
+    {
+        ShowWindow(ie, SW_SHOWNORMAL);
+    }
+
+    // Get the path to this DLL so we can load it up with LoadLibrary.
+    TCHAR dllPath[_MAX_PATH];
+    GetModuleFileName((HINSTANCE) &__ImageBase, dllPath, _MAX_PATH);
+
+    // Get the path to the Windows hook we use to allow resizing the window greater than the virtual screen resolution.
+    HINSTANCE hinstDLL = LoadLibrary(dllPath);
+    HOOKPROC hkprcSysMsg = (HOOKPROC)GetProcAddress(hinstDLL, "CallWndProc");
+    if (hkprcSysMsg == NULL)
+        PrintError(L"GetProcAddress");
+
+    // Install the Windows hook.
+    nextHook = SetWindowsHookEx(WH_CALLWNDPROC, hkprcSysMsg, hinstDLL, 0);
+    if (nextHook == 0)
+        PrintError(L"SetWindowsHookEx");
+
     spBrowser->put_Height(maxHeight);
     spBrowser->put_Width(maxWidth);
 
@@ -354,8 +365,15 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(
     UnhookWindowsHookEx(nextHook);
 
     // Restore the browser to the original dimensions.
-    spBrowser->put_Height(originalHeight);
-    spBrowser->put_Width(originalWidth);
+    if (isMaximized)
+    {
+        ShowWindow(ie, SW_MAXIMIZE);
+    }
+    else
+    {
+        spBrowser->put_Height(originalHeight);
+        spBrowser->put_Width(originalWidth);
+    }
 
     image.Save(CW2T(outputFile));
 
