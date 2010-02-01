@@ -212,148 +212,148 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(
         return E_FAIL;
 
 
-	long originalHeight, originalWidth;
+    long originalHeight, originalWidth;
     spBrowser->get_Height(&originalHeight);
     spBrowser->get_Width(&originalWidth);
 
-	// Get the path to this DLL so we can load it up with LoadLibrary.
+    // Get the path to this DLL so we can load it up with LoadLibrary.
     TCHAR dllPath[_MAX_PATH];
     GetModuleFileName((HINSTANCE) &__ImageBase, dllPath, _MAX_PATH);
 
-	// Get the path to the Windows hook we use to allow resizing the window greater than the virtual screen resolution.
+    // Get the path to the Windows hook we use to allow resizing the window greater than the virtual screen resolution.
     HINSTANCE hinstDLL = LoadLibrary(dllPath);
     HOOKPROC hkprcSysMsg = (HOOKPROC)GetProcAddress(hinstDLL, "CallWndProc");
     if (hkprcSysMsg == NULL)
         PrintError(L"GetProcAddress");
 
-	// Install the Windows hook.
+    // Install the Windows hook.
     nextHook = SetWindowsHookEx(WH_CALLWNDPROC, hkprcSysMsg, hinstDLL, 0);
     if (nextHook == 0)
         PrintError(L"SetWindowsHookEx");
 
-	CComQIPtr<IHTMLDocument5> spDocument5;
-	spDocument->QueryInterface(IID_IHTMLDocument5, (void**)&spDocument5);
-	if (spDocument5 == NULL)
-	{
-		Error(L"Snapsie requires IE6 or greater.");
-		return E_FAIL;
-	}
+    CComQIPtr<IHTMLDocument5> spDocument5;
+    spDocument->QueryInterface(IID_IHTMLDocument5, (void**)&spDocument5);
+    if (spDocument5 == NULL)
+    {
+        Error(L"Snapsie requires IE6 or greater.");
+        return E_FAIL;
+    }
 
-	CComBSTR compatMode;
-	spDocument5->get_compatMode(&compatMode);
+    CComBSTR compatMode;
+    spDocument5->get_compatMode(&compatMode);
 
-	// In non-standards-compliant mode, the BODY element represents the canvas.
-	if (L"BackCompat" == compatMode)
-	{
-		CComPtr<IHTMLElement> spBody;
-		spDocument->get_body(&spBody);
-		if (NULL == spBody)
-		{
-			return E_FAIL;
-		}
+    // In non-standards-compliant mode, the BODY element represents the canvas.
+    if (L"BackCompat" == compatMode)
+    {
+        CComPtr<IHTMLElement> spBody;
+        spDocument->get_body(&spBody);
+        if (NULL == spBody)
+        {
+            return E_FAIL;
+        }
 
-		spBody->getAttribute(CComBSTR("scrollHeight"), 0, &documentHeight);
-		spBody->getAttribute(CComBSTR("scrollWidth"), 0, &documentWidth);
-		spBody->getAttribute(CComBSTR("clientHeight"), 0, &viewportHeight);
-		spBody->getAttribute(CComBSTR("clientWidth"), 0, &viewportWidth);
-	}
+        spBody->getAttribute(CComBSTR("scrollHeight"), 0, &documentHeight);
+        spBody->getAttribute(CComBSTR("scrollWidth"), 0, &documentWidth);
+        spBody->getAttribute(CComBSTR("clientHeight"), 0, &viewportHeight);
+        spBody->getAttribute(CComBSTR("clientWidth"), 0, &viewportWidth);
+    }
 
-	// In standards-compliant mode, the HTML element represents the canvas.
-	else
-	{
-		CComQIPtr<IHTMLDocument3> spDocument3;
-		spDocument->QueryInterface(IID_IHTMLDocument3, (void**)&spDocument3);
-		if (NULL == spDocument3)
-		{
-			Error(L"Unable to get IHTMLDocument3 handle from document.");
-			return E_FAIL;
-		}
+    // In standards-compliant mode, the HTML element represents the canvas.
+    else
+    {
+        CComQIPtr<IHTMLDocument3> spDocument3;
+        spDocument->QueryInterface(IID_IHTMLDocument3, (void**)&spDocument3);
+        if (NULL == spDocument3)
+        {
+            Error(L"Unable to get IHTMLDocument3 handle from document.");
+            return E_FAIL;
+        }
 
-		// The root node should be the HTML element.
-		CComPtr<IHTMLElement> spRootNode;
-		spDocument3->get_documentElement(&spRootNode);
-		if (NULL == spRootNode)
-		{
-			Error(L"Could not retrieve root node.");
-			return E_FAIL;
-		}
+        // The root node should be the HTML element.
+        CComPtr<IHTMLElement> spRootNode;
+        spDocument3->get_documentElement(&spRootNode);
+        if (NULL == spRootNode)
+        {
+            Error(L"Could not retrieve root node.");
+            return E_FAIL;
+        }
 
-		CComPtr<IHTMLHtmlElement> spHtml;
-		spRootNode->QueryInterface(IID_IHTMLHtmlElement, (void**)&spHtml);
-		if (NULL == spHtml)
-		{
-			Error(L"Root node is not the HTML element.");
-			return E_FAIL;
-		}
+        CComPtr<IHTMLHtmlElement> spHtml;
+        spRootNode->QueryInterface(IID_IHTMLHtmlElement, (void**)&spHtml);
+        if (NULL == spHtml)
+        {
+            Error(L"Root node is not the HTML element.");
+            return E_FAIL;
+        }
 
-		spRootNode->getAttribute(CComBSTR("scrollHeight"), 0, &documentHeight);
-		spRootNode->getAttribute(CComBSTR("scrollWidth"), 0, &documentWidth);
-		spRootNode->getAttribute(CComBSTR("clientHeight"), 0, &viewportHeight);
-		spRootNode->getAttribute(CComBSTR("clientWidth"), 0, &viewportWidth);
-	}
+        spRootNode->getAttribute(CComBSTR("scrollHeight"), 0, &documentHeight);
+        spRootNode->getAttribute(CComBSTR("scrollWidth"), 0, &documentWidth);
+        spRootNode->getAttribute(CComBSTR("clientHeight"), 0, &viewportHeight);
+        spRootNode->getAttribute(CComBSTR("clientWidth"), 0, &viewportWidth);
+    }
 
 
-	FILE* fp = fopen("C:\\users\\nirvdrum\\dev\\Snapsie\\test\\dimensions.txt", "w");
+    FILE* fp = fopen("C:\\users\\nirvdrum\\dev\\Snapsie\\test\\dimensions.txt", "w");
 
-	// Figure out how large to make the window.  It's no sufficient to just use the dimensions of the scrolled
-	// viewport because the browser chrome occupies space that must be accounted for as well.
-	RECT ieWindowRect;
+    // Figure out how large to make the window.  It's no sufficient to just use the dimensions of the scrolled
+    // viewport because the browser chrome occupies space that must be accounted for as well.
+    RECT ieWindowRect;
     GetWindowRect(ie, &ieWindowRect);
-	int ieWindowWidth = ieWindowRect.right - ieWindowRect.left;
-	int ieWindowHeight = ieWindowRect.bottom - ieWindowRect.top;
-	fprintf(fp, "IE window: width: %i, height: %i\n", ieWindowWidth, ieWindowHeight);
+    int ieWindowWidth = ieWindowRect.right - ieWindowRect.left;
+    int ieWindowHeight = ieWindowRect.bottom - ieWindowRect.top;
+    fprintf(fp, "IE window: width: %i, height: %i\n", ieWindowWidth, ieWindowHeight);
 
-	RECT ieClientRect;
+    RECT ieClientRect;
     GetClientRect(ie, &ieClientRect);
-	int ieClientWidth = ieClientRect.right - ieClientRect.left;
-	int ieClientHeight = ieClientRect.bottom - ieClientRect.top;
-	fprintf(fp, "IE client area: width: %i, height: %i\n\n", ieClientWidth, ieClientHeight);
+    int ieClientWidth = ieClientRect.right - ieClientRect.left;
+    int ieClientHeight = ieClientRect.bottom - ieClientRect.top;
+    fprintf(fp, "IE client area: width: %i, height: %i\n\n", ieClientWidth, ieClientHeight);
 
-	RECT tabWindowRect;
+    RECT tabWindowRect;
     GetWindowRect(hwndBrowser, &tabWindowRect);
-	int tabWindowWidth = tabWindowRect.right - tabWindowRect.left;
-	int tabWindowHeight = tabWindowRect.bottom - tabWindowRect.top;
-	fprintf(fp, "Tab window: width: %i, height: %i\n", tabWindowWidth, tabWindowHeight);
+    int tabWindowWidth = tabWindowRect.right - tabWindowRect.left;
+    int tabWindowHeight = tabWindowRect.bottom - tabWindowRect.top;
+    fprintf(fp, "Tab window: width: %i, height: %i\n", tabWindowWidth, tabWindowHeight);
 
     RECT tabClientRect;
     GetClientRect(hwndBrowser, &tabClientRect);
-	int tabClientWidth = tabClientRect.right - tabClientRect.left;
-	int tabClientHeight = tabClientRect.bottom - tabClientRect.top;
-	fprintf(fp, "Tab client area: width: %i, height: %i\n\n", tabClientWidth, tabClientHeight);
+    int tabClientWidth = tabClientRect.right - tabClientRect.left;
+    int tabClientHeight = tabClientRect.bottom - tabClientRect.top;
+    fprintf(fp, "Tab client area: width: %i, height: %i\n\n", tabClientWidth, tabClientHeight);
 
 
-	fprintf(fp, "Document width: %i, height: %i\n", documentWidth.intVal, documentHeight.intVal);
-	fprintf(fp, "Viewport width: %i, height: %i\n\n", viewportWidth.intVal, viewportHeight.intVal);
+    fprintf(fp, "Document width: %i, height: %i\n", documentWidth.intVal, documentHeight.intVal);
+    fprintf(fp, "Viewport width: %i, height: %i\n\n", viewportWidth.intVal, viewportHeight.intVal);
 
-	int chromeWidth = ieWindowWidth - viewportWidth.intVal;
-	int chromeHeight = ieWindowHeight - tabClientHeight;
+    int chromeWidth = ieWindowWidth - viewportWidth.intVal;
+    int chromeHeight = ieWindowHeight - tabClientHeight;
 
     maxWidth = documentWidth.intVal + chromeWidth;
     maxHeight = documentHeight.intVal + chromeHeight;
 
-	fprintf(fp, "Max width: %i, height: %i\n", maxWidth, maxHeight);
-	fclose(fp);
+    fprintf(fp, "Max width: %i, height: %i\n", maxWidth, maxHeight);
+    fclose(fp);
 
     spBrowser->put_Height(maxHeight);
     spBrowser->put_Width(maxWidth);
 
 
-	// Capture the window's canvas to a DIB.
-	CImage image;
-	image.Create(documentWidth.intVal, documentHeight.intVal, 24);
+    // Capture the window's canvas to a DIB.
+    CImage image;
+    image.Create(documentWidth.intVal, documentHeight.intVal, 24);
     CImageDC imageDC(image);
     
-	//hr = PrintWindow(hwndBrowser, imageDC, PW_CLIENTONLY);
+    //hr = PrintWindow(hwndBrowser, imageDC, PW_CLIENTONLY);
 
-	RECT rcBounds = { 0, 0, documentWidth.intVal, documentHeight.intVal };
+    RECT rcBounds = { 0, 0, documentWidth.intVal, documentHeight.intVal };
     hr = OleDraw(spViewObject, DVASPECT_DOCPRINT, imageDC, &rcBounds);
 
     if (FAILED(hr))
         PrintError(L"OleDraw");
 
-	UnhookWindowsHookEx(nextHook);
+    UnhookWindowsHookEx(nextHook);
 
-	// Restore the browser to the original dimensions.
+    // Restore the browser to the original dimensions.
     spBrowser->put_Height(originalHeight);
     spBrowser->put_Width(originalWidth);
 
@@ -375,9 +375,9 @@ LRESULT WINAPI CallWndProc(int nCode, WPARAM wParam, LPARAM lParam)
     CWPSTRUCT* cwp = (CWPSTRUCT*) lParam;
 
     if (WM_GETMINMAXINFO == cwp->message)
-	{
-		// Inject our own message processor into the process so we can modify the WM_GETMINMAXINFO message.
-		// It is not possible to modify the message from this hook, so the best we can do is inject a function that can.
+    {
+        // Inject our own message processor into the process so we can modify the WM_GETMINMAXINFO message.
+        // It is not possible to modify the message from this hook, so the best we can do is inject a function that can.
         LONG_PTR proc = SetWindowLongPtr(cwp->hwnd, GWL_WNDPROC, (LONG_PTR) MinMaxInfoHandler);
         SetProp(cwp->hwnd, L"__original_message_processor__", (HANDLE) proc);
     }
@@ -391,24 +391,24 @@ LRESULT WINAPI CallWndProc(int nCode, WPARAM wParam, LPARAM lParam)
 // the original IEFrame message processor.  This function uninjects itself immediately upon execution.
 LRESULT CALLBACK MinMaxInfoHandler(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
-	// Grab a reference to the original message processor.
+    // Grab a reference to the original message processor.
     HANDLE originalMessageProc = GetProp(hwnd, L"__original_message_processor__");
     RemoveProp(hwnd, L"__original_message_processor__");
 
-	// Uninject this method.
+    // Uninject this method.
     SetWindowLongPtr(hwnd, GWL_WNDPROC, (LONG_PTR) originalMessageProc);
 
-	if (WM_GETMINMAXINFO == message)
-	{
-		MINMAXINFO* minMaxInfo = (MINMAXINFO*) lParam;
+    if (WM_GETMINMAXINFO == message)
+    {
+        MINMAXINFO* minMaxInfo = (MINMAXINFO*) lParam;
 
         minMaxInfo->ptMaxTrackSize.x = maxWidth;
         minMaxInfo->ptMaxTrackSize.y = maxHeight;
 
-		// We're not going to pass this message onto the original message processor, so we should
-		// return 0, per the documentation for the WM_GETMINMAXINFO message.
+        // We're not going to pass this message onto the original message processor, so we should
+        // return 0, per the documentation for the WM_GETMINMAXINFO message.
         return 0;
-	}
+    }
 
     // All other messages should be handled by the original message processor.
     return CallWindowProc((WNDPROC) originalMessageProc, hwnd, message, wParam, lParam);
