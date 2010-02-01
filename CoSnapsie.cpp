@@ -110,15 +110,6 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(
     IHTMLElement       *pElement = (IHTMLElement *) NULL;
     IHTMLElementRender *pRender = (IHTMLElementRender *) NULL;
 
-    CComBSTR overflow;
-    long scrollLeft;
-    long scrollTop;
-
-    long capturableScrollWidth;
-    long capturableScrollHeight;
-    long capturableClientWidth;
-    long capturableClientHeight;
-
     GetSite(IID_IUnknown, (void**)&spClientSite);
 
     if (spClientSite == NULL) {
@@ -291,9 +282,9 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(
 	image.Create(documentWidth.intVal, documentHeight.intVal, 24);
     CImageDC imageDC(image);
     
-    RECT rcBounds = { 0, 0, documentWidth.intVal, documentHeight.intVal };
-    
 	hr = PrintWindow(hwndBrowser, imageDC, PW_CLIENTONLY);
+
+	//RECT rcBounds = { 0, 0, documentWidth.intVal, documentHeight.intVal };
     //hr = OleDraw(spViewObject, DVASPECT_DOCPRINT, imageDC, &rcBounds);
 
     if (FAILED(hr))
@@ -301,11 +292,10 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(
 
 	UnhookWindowsHookEx(nextHook);
 
+	// Restore the browser to the original dimensions.
     spBrowser->put_Height(originalHeight);
     spBrowser->put_Width(originalWidth);
 
-
-    // save the image.
     image.Save(CW2T(outputFile));
 
     return hr;
@@ -349,7 +339,7 @@ LRESULT CALLBACK MinMaxInfoHandler(HWND hwnd, UINT message, WPARAM wParam, LPARA
 
 	if (WM_GETMINMAXINFO == message)
 	{
-		MINMAXINFO* minMaxInfo = (MINMAXINFO*) (lParam);
+		MINMAXINFO* minMaxInfo = (MINMAXINFO*) lParam;
 
         minMaxInfo->ptMaxTrackSize.x = maxWidth;
         minMaxInfo->ptMaxTrackSize.y = maxHeight;
