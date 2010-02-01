@@ -96,7 +96,6 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(
     CComPtr<IWebBrowser2>       spBrowser;
     CComPtr<IDispatch>          spDispatch; 
     CComQIPtr<IHTMLDocument2>   spDocument;
-    CComQIPtr<IHTMLDocument3>   doc3;
     CComPtr<IHTMLWindow2>       spScrollableWindow;
     CComQIPtr<IViewObject2>     spViewObject;
     CComPtr<IHTMLStyle>         spStyle;
@@ -176,32 +175,6 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(
         if (spDocument == NULL)
             return E_FAIL;
 
-        spDocument->get_body(&pElement);
-
-        if (pElement == (IHTMLElement *) NULL)
-            return E_FAIL;
-
-
-        pElement->getAttribute(CComBSTR("scrollHeight"), 0, &documentHeight);
-        pElement->getAttribute(CComBSTR("scrollWidth"), 0, &documentWidth);
-        pElement->getAttribute(CComBSTR("clientHeight"), 0, &viewportHeight);
-        pElement->getAttribute(CComBSTR("clientWidth"), 0, &viewportWidth);
-
-        IHTMLStyle* pStyle;
-        hr = pElement->get_style(&pStyle);
-        if (FAILED(hr))
-        {
-            PrintError(L"Getting style");
-
-            return E_FAIL;
-        }
-
-        pElement->QueryInterface(IID_IHTMLElementRender, (void **) &pRender);
-
-        if (pRender == (IHTMLElementRender *) NULL)
-            return E_FAIL;
-
-
 
         IServiceProvider* pServiceProvider = NULL;
         if (SUCCEEDED(spBrowser->QueryInterface(
@@ -258,20 +231,113 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(
     if (nextHook == 0)
         PrintError(L"SetWindowsHookEx");
 
+	FILE* fp = fopen("C:\\users\\nirvdrum\\dev\\Snapsie\\test\\dimensions.txt", "w");
+
+	CComQIPtr<IHTMLDocument5> spDocument5;
+	spDocument->QueryInterface(IID_IHTMLDocument5, (void**)&spDocument5);
+	if (spDocument5 == NULL)
+	{
+		Error(L"Snapsie requires IE6 or greater.");
+		return E_FAIL;
+	}
+
+	CComBSTR compatMode;
+	spDocument5->get_compatMode(&compatMode);
+
+	// In non-standards-compliant mode, the BODY element represents the canvas.
+	if (L"BackCompat" == compatMode)
+	{
+		CComPtr<IHTMLElement> spBody;
+		spDocument->get_body(&spBody);
+		if (NULL == spBody)
+		{
+			return E_FAIL;
+		}
+
+		spBody->getAttribute(CComBSTR("scrollHeight"), 0, &documentHeight);
+		spBody->getAttribute(CComBSTR("scrollWidth"), 0, &documentWidth);
+		spBody->getAttribute(CComBSTR("clientHeight"), 0, &viewportHeight);
+		spBody->getAttribute(CComBSTR("clientWidth"), 0, &viewportWidth);
+	}
+
+	// In standards-compliant mode, the HTML element represents the canvas.
+	else
+	{
+		CComQIPtr<IHTMLDocument3> spDocument3;
+		spDocument->QueryInterface(IID_IHTMLDocument3, (void**)&spDocument3);
+		if (NULL == spDocument3)
+		{
+			Error(L"Unable to get IHTMLDocument3 handle from document.");
+			return E_FAIL;
+		}
+
+		// The root node should be the HTML element.
+		CComPtr<IHTMLElement> spRootNode;
+		spDocument3->get_documentElement(&spRootNode);
+		if (NULL == spRootNode)
+		{
+			Error(L"Could not retrieve root node.");
+			return E_FAIL;
+		}
+
+		CComPtr<IHTMLHtmlElement> spHtml;
+		spRootNode->QueryInterface(IID_IHTMLHtmlElement, (void**)&spHtml);
+		if (NULL == spHtml)
+		{
+			Error(L"Root node is not the HTML element.");
+			return E_FAIL;
+		}
+
+		spRootNode->getAttribute(CComBSTR("scrollHeight"), 0, &documentHeight);
+		spRootNode->getAttribute(CComBSTR("scrollWidth"), 0, &documentWidth);
+		spRootNode->getAttribute(CComBSTR("clientHeight"), 0, &viewportHeight);
+		spRootNode->getAttribute(CComBSTR("clientWidth"), 0, &viewportWidth);
+	}
+
+
+
 
 	// Figure out how large to make the window.  It's no sufficient to just use the dimensions of the scrolled
 	// viewport because the browser chrome occupies space that must be accounted for as well.
-	RECT windowRect;
-    GetWindowRect(hwndBrowser, &windowRect);
+	RECT ieWindowRect;
+    GetWindowRect(ie, &ieWindowRect);
+	int ieWindowWidth = ieWindowRect.right - ieWindowRect.left;
+	int ieWindowHeight = ieWindowRect.bottom - ieWindowRect.top;
+	fprintf(fp, "IE window: width: %i, height: %i\n", ieWindowWidth, ieWindowHeight);
 
-    RECT clientRect;
-    GetClientRect(hwndBrowser, &clientRect);
+	RECT ieClientRect;
+    GetClientRect(ie, &ieClientRect);
+	int ieClientWidth = ieClientRect.right - ieClientRect.left;
+	int ieClientHeight = ieClientRect.bottom - ieClientRect.top;
+	fprintf(fp, "IE client area: width: %i, height: %i\n\n", ieClientWidth, ieClientHeight);
 
-    int chromeWidth = originalWidth - viewportWidth.intVal;
-    int chromeHeight = windowRect.top * 2;
+	RECT tabWindowRect;
+    GetWindowRect(hwndBrowser, &tabWindowRect);
+	int tabWindowWidth = tabWindowRect.right - tabWindowRect.left;
+	int tabWindowHeight = tabWindowRect.bottom - tabWindowRect.top;
+	fprintf(fp, "Tab window: width: %i, height: %i\n", tabWindowWidth, tabWindowHeight);
+
+    RECT tabClientRect;
+    GetClientRect(hwndBrowser, &tabClientRect);
+	int tabClientWidth = tabClientRect.right - tabClientRect.left;
+	int tabClientHeight = tabClientRect.bottom - tabClientRect.top;
+	fprintf(fp, "Tab client area: width: %i, height: %i\n\n", tabClientWidth, tabClientHeight);
+
+
+	fprintf(fp, "Document width: %i, height: %i\n", documentWidth.intVal, documentHeight.intVal);
+	fprintf(fp, "Viewport width: %i, height: %i\n\n", viewportWidth.intVal, viewportHeight.intVal);
+	fprintf(fp, "Drawable scroll width: %i, height: %i\n", drawableScrollWidth, drawableScrollHeight);
+	fprintf(fp, "Drawable client width: %i, height: %i\n\n", drawableClientWidth, drawableClientHeight);
+
+
+    int chromeWidth = ieWindowWidth - tabClientWidth;
+    int chromeHeight = ieWindowHeight - tabClientHeight;
 
     maxWidth = documentWidth.intVal + chromeWidth;
     maxHeight = documentHeight.intVal + chromeHeight;
+
+	fprintf(fp, "Max width: %i, height: %i\n", maxWidth, maxHeight);
+	fclose(fp);
 
     spBrowser->put_Height(maxHeight);
     spBrowser->put_Width(maxWidth);
@@ -282,10 +348,10 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(
 	image.Create(documentWidth.intVal, documentHeight.intVal, 24);
     CImageDC imageDC(image);
     
-	hr = PrintWindow(hwndBrowser, imageDC, PW_CLIENTONLY);
+	//hr = PrintWindow(hwndBrowser, imageDC, PW_CLIENTONLY);
 
-	//RECT rcBounds = { 0, 0, documentWidth.intVal, documentHeight.intVal };
-    //hr = OleDraw(spViewObject, DVASPECT_DOCPRINT, imageDC, &rcBounds);
+	RECT rcBounds = { 0, 0, documentWidth.intVal, documentHeight.intVal };
+    hr = OleDraw(spViewObject, DVASPECT_DOCPRINT, imageDC, &rcBounds);
 
     if (FAILED(hr))
         PrintError(L"OleDraw");
