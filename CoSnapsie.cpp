@@ -292,15 +292,10 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(
     
 	hr = PrintWindow(hwndBrowser, imageDC, PW_CLIENTONLY);
     // hr = OleDraw(spViewObject, DVASPECT_DOCPRINT, myHDC, &rcBounds);
-    /*
-    hr = spViewObject->Draw(DVASPECT_CONTENT, -1, NULL, NULL,
-                                   hdcInput, hdcOutput, &rcBounds,
-                                   NULL, NULL, 0);
-                                   */
-
 
     if (FAILED(hr))
         PrintError(L"OleDraw");
+
 	UnhookWindowsHookEx(nextHook);
 
     spBrowser->put_Height(originalHeight);
