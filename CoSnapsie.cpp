@@ -8,7 +8,7 @@
 #include <windows.h>
 #include <shlguid.h>
 
-LRESULT CALLBACK MyProc(HWND, UINT, WPARAM, LPARAM);
+LRESULT CALLBACK MinMaxInfoHandler(HWND, UINT, WPARAM, LPARAM);
 
 WNDPROC originalProc;
 
@@ -319,7 +319,6 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(
 // would otherwise allow.
 //
 // See the discussion here: http://www.codeguru.com/forum/showthread.php?p=1889928
-
 LRESULT WINAPI CallWndProc(int nCode, WPARAM wParam, LPARAM lParam)
 {
     DWORD procID = GetCurrentProcessId();
@@ -329,20 +328,27 @@ LRESULT WINAPI CallWndProc(int nCode, WPARAM wParam, LPARAM lParam)
     UINT message = cw->message;
 
     if (message == WM_GETMINMAXINFO)
-    {
-        MINMAXINFO* minMaxInfo = (MINMAXINFO*) cw->lParam;
-
-        LONG_PTR proc = SetWindowLongPtr(cw->hwnd, GWL_WNDPROC, (LONG_PTR) MyProc);
-        SetProp(cw->hwnd, L"_old_proc_", (HANDLE) proc);
+	{
+		// Inject our own message processor into the process so we can modify the WM_GETMINMAXINFO message.
+		// It is not possible to modify the message from this hook, so the best we can do is inject a function that can.
+        LONG_PTR proc = SetWindowLongPtr(cw->hwnd, GWL_WNDPROC, (LONG_PTR) MinMaxInfoHandler);
+        SetProp(cw->hwnd, L"__original_message_processor__", (HANDLE) proc);
     }
 
     return CallNextHookEx(nextHook, nCode, wParam, lParam);
 }
 
-LRESULT CALLBACK MyProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
+// This function is our message processor that we inject into the IEFrame process.  Its sole purpose
+// is to process WM_GETMINMAXINFO messages and modify the max tracking size so that we can resize the
+// IEFrame window to greater than the virtual screen resolution.  All other messages are delegated to
+// the original IEFrame message processor.  This function uninjects itself immediately upon execution.
+LRESULT CALLBACK MinMaxInfoHandler(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
-    HANDLE originalMessageProc = GetProp(hwnd, L"_old_proc_");
-    RemoveProp(hwnd, L"_old_proc_");
+	// Grab a reference to the original message processor.
+    HANDLE originalMessageProc = GetProp(hwnd, L"__original_message_processor__");
+    RemoveProp(hwnd, L"__original_message_processor__");
+
+	// Uninject this method.
     SetWindowLongPtr(hwnd, GWL_WNDPROC, (LONG_PTR) originalMessageProc);
 
     switch (message)
@@ -351,16 +357,17 @@ LRESULT CALLBACK MyProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
         {
             MINMAXINFO* minMaxInfo = (MINMAXINFO*) (lParam);
 
-            minMaxInfo->ptMaxSize.x = maxWidth;
-            minMaxInfo->ptMaxSize.y = maxHeight;
             minMaxInfo->ptMaxTrackSize.x = maxWidth;
             minMaxInfo->ptMaxTrackSize.y = maxHeight;
 
+			// We're not going to pass this message onto the original message processor, so we should
+			// return 0, per the documentation for the WM_GETMINMAXINFO message.
             return 0;
         }
 
         default:
         {
+			// All other messages should be handled by the original message processor.
             return CallWindowProc((WNDPROC) originalMessageProc, hwnd, message,	wParam,	lParam);
         }
     }
