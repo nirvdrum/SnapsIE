@@ -240,12 +240,6 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(
         } 
     }
 
-
-    // create the HDC objects
-    HDC hdcInput = ::GetDC(hwndBrowser);
-    if (!hdcInput)
-        return E_FAIL;
-
     // Nobody else seems to know how to get IViewObject2?!
     // http://starkravingfinkle.org/blog/2004/09/
     //spViewObject = spDocument;
@@ -315,9 +309,6 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(
 
     // save the imag
     image.Save(CW2T(outputFile));
-
-    // clean up
-    ::ReleaseDC(hwndBrowser, hdcInput);
 
     return hr;
 }
