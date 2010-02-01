@@ -252,34 +252,6 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(
     spDocument->QueryInterface(IID_IViewObject, (void**)&spViewObject);
     if (spViewObject == NULL)
         return E_FAIL;
- 
-
-    BITMAPINFOHEADER bih;
-    BITMAPINFO bi;
-    RGBQUAD rgbquad;
-
-    ZeroMemory(&bih, sizeof(BITMAPINFOHEADER));
-    ZeroMemory(&rgbquad, sizeof(RGBQUAD));
-
-    bih.biSize      = sizeof(BITMAPINFOHEADER);
-    bih.biWidth     = documentWidth.intVal;
-        bih.biHeight    = documentHeight.intVal;
-    bih.biPlanes    = 1;
-    bih.biBitCount      = 32;
-    bih.biClrUsed       = 0;
-    bih.biSizeImage     = 0;
-    bih.biCompression   = BI_RGB;
-    bih.biXPelsPerMeter = 0;
-    bih.biYPelsPerMeter = 0;
-
-    bi.bmiHeader = bih;
-    bi.bmiColors[0] = rgbquad;
-
-    char* bitmapData = NULL;
-    HBITMAP hBitmap = CreateDIBSection(hdcInput, &bi, DIB_RGB_COLORS,
-        (void**)&bitmapData, NULL, 0);
-
-    HDC hdcOutput = CreateCompatibleDC(hdcInput);
 
 
 	long originalHeight, originalWidth;
