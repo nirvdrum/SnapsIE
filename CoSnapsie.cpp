@@ -108,19 +108,21 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(
 
     GetSite(IID_IUnknown, (void**)&spClientSite);
 
-    if (spClientSite == NULL) {
-        Error("Como están, BEACHES!!!");
+    if (spClientSite == NULL)
+    {
+        Error(L"There is no site.");
         return E_FAIL;
     }
 
     spISP = spClientSite;
     if (spISP == NULL)
+    {
+        Error(L"Unable to convert client site to service provider.");
         return E_FAIL;
+    }
 
     // from http://support.microsoft.com/kb/257717
-
-    hr = spISP->QueryService(IID_IWebBrowserApp, IID_IWebBrowser2,
-         (void **)&spBrowser);
+    hr = spISP->QueryService(IID_IWebBrowserApp, IID_IWebBrowser2, (void **)&spBrowser);
 
     if (FAILED(hr)) {
         // if we can't query the client site for IWebBrowser2, we're probably
@@ -203,10 +205,12 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(
 
     // Nobody else seems to know how to get IViewObject2?!
     // http://starkravingfinkle.org/blog/2004/09/
-    //spViewObject = spDocument;
-    spDocument->QueryInterface(IID_IViewObject, (void**)&spViewObject);
+    spViewObject = spDocument;
     if (spViewObject == NULL)
+    {
+        Error(L"Unable to convert document to view object.");
         return E_FAIL;
+    }
 
     CComQIPtr<IHTMLDocument5> spDocument5;
     spDocument->QueryInterface(IID_IHTMLDocument5, (void**)&spDocument5);
