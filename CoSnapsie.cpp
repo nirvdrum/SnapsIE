@@ -106,9 +106,6 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(
     CComVariant viewportHeight;
     CComVariant viewportWidth;
 
-    IHTMLElement       *pElement = (IHTMLElement *) NULL;
-    IHTMLElementRender *pRender = (IHTMLElementRender *) NULL;
-
     GetSite(IID_IUnknown, (void**)&spClientSite);
 
     if (spClientSite == NULL) {
@@ -223,7 +220,7 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(
     spDocument5->get_compatMode(&compatMode);
 
     // In non-standards-compliant mode, the BODY element represents the canvas.
-    if (L"BackCompat" == compatMode)
+    if (compatMode == L"BackCompat")
     {
         CComPtr<IHTMLElement> spBody;
         spDocument->get_body(&spBody);
