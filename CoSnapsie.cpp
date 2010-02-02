@@ -306,11 +306,16 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(
     fprintf(fp, "Document width: %i, height: %i\n", documentWidth.intVal, documentHeight.intVal);
     fprintf(fp, "Viewport width: %i, height: %i\n\n", viewportWidth.intVal, viewportHeight.intVal);
 
-    int chromeWidth = ieWindowWidth - viewportWidth.intVal;
-    int chromeHeight = ieWindowHeight - tabClientHeight;
+    int chromeWidth = ieWindowWidth - tabClientWidth;
+    int chromeHeight = 2* ( ieWindowHeight - tabClientHeight );
 
-    maxWidth = documentWidth.intVal + chromeWidth;
-    maxHeight = documentHeight.intVal + chromeHeight;
+    int imageHeight = documentHeight.intVal;
+    int imageWidth = documentWidth.intVal;
+
+    fprintf(fp, "Image width: %i, height: %i\n", imageWidth, imageHeight);
+
+    maxWidth = imageWidth + chromeWidth;
+    maxHeight = imageHeight + chromeHeight;
 
     fprintf(fp, "Max width: %i, height: %i\n", maxWidth, maxHeight);
     fclose(fp);
@@ -352,16 +357,24 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(
 
     // Capture the window's canvas to a DIB.
     CImage image;
-    image.Create(documentWidth.intVal, documentHeight.intVal, 24);
+    image.Create(imageWidth, imageHeight, 24);
     CImageDC imageDC(image);
     
-    //hr = PrintWindow(hwndBrowser, imageDC, PW_CLIENTONLY);
-
-    RECT rcBounds = { 0, 0, documentWidth.intVal, documentHeight.intVal };
-    hr = OleDraw(spViewObject, DVASPECT_DOCPRINT, imageDC, &rcBounds);
-
+    hr = PrintWindow(hwndBrowser, imageDC, PW_CLIENTONLY);
     if (FAILED(hr))
-        PrintError(L"OleDraw");
+    {
+        Error(L"PrintWindow");
+    }
+
+    // I'm not sure if PrintWindow captures alpha blending or not.  OleDraw does, but I was having
+    // issues with sizing the browser correctly between quirks and standards modes to capture everything we need.
+    //
+    //RECT rcBounds = { 0, 0, imageWidth, imageHeight };
+    //hr = OleDraw(spViewObject, DVASPECT_DOCPRINT, imageDC, &rcBounds);
+    //if (FAILED(hr))
+    //{
+    //    Error(L"OleDraw");
+    //}
 
     UnhookWindowsHookEx(nextHook);
 
@@ -376,7 +389,12 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(
         spBrowser->put_Width(originalWidth);
     }
 
-    image.Save(CW2T(outputFile));
+    hr = image.Save(CW2T(outputFile));
+    if (FAILED(hr))
+    {
+        PrintError(L"Failed saving image.");
+        return E_FAIL;
+    }
 
     return hr;
 }
