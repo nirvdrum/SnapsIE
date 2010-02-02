@@ -274,52 +274,26 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(
     }
 
 
-    FILE* fp = fopen("C:\\dimensions.txt", "w");
-
     // Figure out how large to make the window.  It's no sufficient to just use the dimensions of the scrolled
     // viewport because the browser chrome occupies space that must be accounted for as well.
     RECT ieWindowRect;
     GetWindowRect(ie, &ieWindowRect);
     int ieWindowWidth = ieWindowRect.right - ieWindowRect.left;
     int ieWindowHeight = ieWindowRect.bottom - ieWindowRect.top;
-    fprintf(fp, "IE window: width: %i, height: %i\n", ieWindowWidth, ieWindowHeight);
 
-    RECT ieClientRect;
-    GetClientRect(ie, &ieClientRect);
-    int ieClientWidth = ieClientRect.right - ieClientRect.left;
-    int ieClientHeight = ieClientRect.bottom - ieClientRect.top;
-    fprintf(fp, "IE client area: width: %i, height: %i\n\n", ieClientWidth, ieClientHeight);
+    RECT contentClientRect;
+    GetClientRect(hwndBrowser, &contentClientRect);
+    int contentClientWidth = contentClientRect.right - contentClientRect.left;
+    int contentClientHeight = contentClientRect.bottom - contentClientRect.top;
 
-    RECT tabWindowRect;
-    GetWindowRect(hwndBrowser, &tabWindowRect);
-    int tabWindowWidth = tabWindowRect.right - tabWindowRect.left;
-    int tabWindowHeight = tabWindowRect.bottom - tabWindowRect.top;
-    fprintf(fp, "Tab window: width: %i, height: %i\n", tabWindowWidth, tabWindowHeight);
-
-    RECT tabClientRect;
-    GetClientRect(hwndBrowser, &tabClientRect);
-    int tabClientWidth = tabClientRect.right - tabClientRect.left;
-    int tabClientHeight = tabClientRect.bottom - tabClientRect.top;
-    fprintf(fp, "Tab client area: width: %i, height: %i\n\n", tabClientWidth, tabClientHeight);
-
-
-    fprintf(fp, "Document width: %i, height: %i\n", documentWidth.intVal, documentHeight.intVal);
-    fprintf(fp, "Viewport width: %i, height: %i\n\n", viewportWidth.intVal, viewportHeight.intVal);
-
-    int chromeWidth = ieWindowWidth - tabClientWidth;
-    int chromeHeight = 2* ( ieWindowHeight - tabClientHeight );
+    int chromeWidth = ieWindowWidth - contentClientWidth;
+    int chromeHeight = 2 * (ieWindowHeight - contentClientHeight);
 
     int imageHeight = documentHeight.intVal;
     int imageWidth = documentWidth.intVal;
 
-    fprintf(fp, "Image width: %i, height: %i\n", imageWidth, imageHeight);
-
     maxWidth = imageWidth + chromeWidth;
     maxHeight = imageHeight + chromeHeight;
-
-    fprintf(fp, "Max width: %i, height: %i\n", maxWidth, maxHeight);
-    fclose(fp);
-
 
     long originalHeight, originalWidth;
     spBrowser->get_Height(&originalHeight);
