@@ -10,8 +10,6 @@
 
 LRESULT CALLBACK MinMaxInfoHandler(HWND, UINT, WPARAM, LPARAM);
 
-WNDPROC originalProc;
-
 // Define a shared data segment.  Variables in this segment can be shared across processes that load this DLL.
 #pragma data_seg("SHARED")
 HHOOK nextHook = NULL;
