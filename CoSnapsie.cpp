@@ -274,7 +274,7 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(
     }
 
 
-    FILE* fp = fopen("C:\\users\\nirvdrum\\dev\\Snapsie\\test\\dimensions.txt", "w");
+    FILE* fp = fopen("C:\\dimensions.txt", "w");
 
     // Figure out how large to make the window.  It's no sufficient to just use the dimensions of the scrolled
     // viewport because the browser chrome occupies space that must be accounted for as well.
