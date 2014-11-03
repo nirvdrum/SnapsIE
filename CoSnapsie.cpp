@@ -272,7 +272,7 @@ STDMETHODIMP CCoSnapsie::saveSnapshot(
     }
 
 
-    // Figure out how large to make the window.  It's no sufficient to just use the dimensions of the scrolled
+    // Figure out how large to make the window.  It's not sufficient to just use the dimensions of the scrolled
     // viewport because the browser chrome occupies space that must be accounted for as well.
     RECT ieWindowRect;
     GetWindowRect(ie, &ieWindowRect);
